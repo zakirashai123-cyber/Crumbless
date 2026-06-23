@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reveal animation — scoped to html.js so content is visible without JS */
+html.js .reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+html.js .reveal.in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.js .reveal,
+  html.js .reveal.in {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Relay fill animation */
+@keyframes relayFill {
+  from { height: 0% }
+  to   { height: 100% }
+}
+
+/* Float animation for hero cards */
+@keyframes floatUp {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+
+.float-card {
+  animation: floatUp 3.5s ease-in-out infinite;
+}
+.float-card-delayed {
+  animation: floatUp 3.5s ease-in-out 1.2s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .float-card,
+  .float-card-delayed {
+    animation: none;
+  }
+}
