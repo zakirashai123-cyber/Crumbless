@@ -189,6 +189,9 @@ label.field>span{display:block;font-size:.85rem;font-weight:700;margin-bottom:6p
 .auth-switch{text-align:center;margin-top:14px;font-size:.86rem;color:var(--muted)}
 .auth-switch button{background:none;border:none;color:var(--leaf-600);font-weight:700;cursor:pointer;font-family:var(--sans);font-size:.86rem}
 .auth-note{margin-top:16px;font-size:.72rem;color:var(--muted);text-align:center;line-height:1.5}
+.lic-hint{display:block;font-size:.72rem;color:var(--muted);margin-top:6px;font-weight:400;line-height:1.4}
+input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
+.admin-badge{display:inline-block;background:var(--honey);color:var(--ink);font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:2px 6px;border-radius:6px;margin-left:4px;vertical-align:middle}
 </style>
 </head>
 <body>
@@ -379,9 +382,12 @@ label.field>span{display:block;font-size:.85rem;font-weight:700;margin-bottom:6p
       <label class="field" id="nameField" style="display:none"><span>Full name</span>
         <input class="inp" id="authName" placeholder="Your name" autocomplete="name"></label>
       <label class="field"><span>Email</span>
-        <input class="inp" id="authEmail" type="email" placeholder="you@email.com" autocomplete="email" required></label>
+        <input class="inp" id="authEmail" type="email" placeholder="you@email.com" autocomplete="email" oninput="onAuthEmailInput()" required></label>
       <label class="field"><span>Password</span>
         <input class="inp" id="authPassword" type="password" placeholder="At least 6 characters" autocomplete="current-password" required></label>
+      <label class="field" id="licenseField" style="display:none"><span>Driver's license</span>
+        <input class="inp" id="authLicense" type="file" accept="image/*,.pdf">
+        <span class="lic-hint">Upload a clear photo or scan of your driver's license — required to drive for Crumbless.</span></label>
       <button class="btn btn-leaf btn-block" type="submit" id="authSubmit">Log in</button>
     </form>
 
@@ -474,6 +480,7 @@ const supaEnabled = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 let supa = null;
 
 const AUTH_KEY='crumbless_accounts', SESS_KEY='crumbless_session';
+const ADMIN_EMAIL='zakirashai@crumbless.org';   // exempt from license, tagged as Admin
 let authMode='login';
 
 /* ---- init: load Supabase client only when configured ---- */
@@ -497,7 +504,7 @@ function initAuth(){
 function loadAccounts(){ try{ return JSON.parse(localStorage.getItem(AUTH_KEY))||{}; }catch(e){ return {}; } }
 function saveAccounts(a){ localStorage.setItem(AUTH_KEY, JSON.stringify(a)); }
 function hashPw(s){ let h=5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h)^s.charCodeAt(i); } return (h>>>0).toString(36); }
-function demoUser(){ const e=localStorage.getItem(SESS_KEY); if(!e) return null; const a=loadAccounts(); return a[e]?{email:e, name:a[e].name}:null; }
+function demoUser(){ const e=localStorage.getItem(SESS_KEY); if(!e) return null; const a=loadAccounts(); return a[e]?{email:e, name:a[e].name, user_metadata:{role:a[e].role}}:null; }
 
 /* ---- nav rendering (handles Supabase or demo user objects) ---- */
 function userName(u){ if(!u) return ''; const m=u.user_metadata||{}; return u.name || m.full_name || m.name || (u.email||'').split('@')[0]; }
@@ -505,7 +512,9 @@ function paintUser(u){
   const slot=document.getElementById('authSlot'); if(!slot) return;
   if(u){
     const name=userName(u); const initial=(name||'?').trim()[0].toUpperCase();
-    slot.innerHTML=`<span class="user-chip" title="${esc(u.email||'')}"><span class="avatar">${esc(initial)}</span><span>${esc(name.split(' ')[0])}</span></span> <button class="btn btn-ghost btn-sm" onclick="logout()">Log out</button>`;
+    const role=(u.user_metadata&&u.user_metadata.role)||u.role;
+    const badge = role==='admin' ? '<span class="admin-badge">Admin</span>' : '';
+    slot.innerHTML=`<span class="user-chip" title="${esc(u.email||'')}"><span class="avatar">${esc(initial)}</span><span>${esc(name.split(' ')[0])}</span>${badge}</span> <button class="btn btn-ghost btn-sm" onclick="logout()">Log out</button>`;
   } else {
     slot.innerHTML=`<button class="btn btn-ghost btn-sm" onclick="openAuth('login')">Log in</button>`;
   }
@@ -525,10 +534,28 @@ function setAuthMode(mode){
   document.getElementById('authTitle').textContent = signup?'Create your account':'Welcome back';
   document.getElementById('authSub').textContent   = signup?'Join Crumbless to post food, drive routes, and track hours.':'Log in to your Crumbless account.';
   document.getElementById('nameField').style.display = signup?'block':'none';
+  document.getElementById('licenseField').style.display = signup?'block':'none';
   document.getElementById('authSubmit').textContent  = signup?'Create account':'Log in';
   document.getElementById('authPassword').setAttribute('autocomplete', signup?'new-password':'current-password');
   document.getElementById('authToggleBtn').style.display = signup?'none':'flex';
   document.getElementById('authSwitch').style.display    = signup?'block':'none';
+  if(signup) onAuthEmailInput();
+}
+
+/* hide the license upload when the admin email is entered */
+function onAuthEmailInput(){
+  if(authMode!=='signup') return;
+  const isAdmin = document.getElementById('authEmail').value.trim().toLowerCase()===ADMIN_EMAIL;
+  document.getElementById('licenseField').style.display = isAdmin ? 'none' : 'block';
+}
+
+/* upload a driver's license to Supabase Storage; returns the stored path */
+async function uploadLicense(userId, file){
+  const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+  const path=userId+'/license.'+ext;
+  const {error}=await supa.storage.from('licenses').upload(path, file, { upsert:true, contentType:file.type||'application/octet-stream' });
+  if(error) throw error;
+  return path;
 }
 
 function openAuth(mode){ setAuthMode(mode||'login'); document.getElementById('authModal').classList.add('open'); setTimeout(()=>document.getElementById('authEmail').focus(),60); }
@@ -542,12 +569,23 @@ async function submitAuth(e){
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ authError('Please enter a valid email address.'); return false; }
   if(pw.length<6){ authError('Password must be at least 6 characters.'); return false; }
 
+  const isAdmin = email===ADMIN_EMAIL;
+  const licenseFile = document.getElementById('authLicense').files[0];
+  if(authMode==='signup' && !isAdmin){
+    if(!licenseFile){ authError('Please upload a photo of your driver’s license to sign up.'); return false; }
+    if(licenseFile.size > 6*1024*1024){ authError('That file is too large — please use an image under 6 MB.'); return false; }
+  }
+
   if(supaEnabled && supa){
     if(authMode==='signup'){
-      const {data,error}=await supa.auth.signUp({ email, password:pw, options:{ data:{ full_name: name||email.split('@')[0] } } });
+      const {data,error}=await supa.auth.signUp({ email, password:pw, options:{ data:{ full_name: name||email.split('@')[0], role: isAdmin?'admin':'driver' } } });
       if(error){ authError(error.message); return false; }
       if(!data.session){ closeAuth(); toast('Almost there — check your email to confirm your account.', true); return false; }
-      closeAuth(); toast('Account created — welcome!', true);
+      if(!isAdmin && licenseFile){
+        try { const path=await uploadLicense(data.user.id, licenseFile); await supa.auth.updateUser({ data:{ license_path: path } }); }
+        catch(err){ console.warn('License upload failed (is the "licenses" storage bucket set up?):', err.message); }
+      }
+      closeAuth(); toast(isAdmin?'Admin account ready — welcome!':'Account created — welcome!', true);
     } else {
       const {error}=await supa.auth.signInWithPassword({ email, password:pw });
       if(error){ authError('Incorrect email or password.'); return false; }
@@ -560,7 +598,7 @@ async function submitAuth(e){
   const accounts=loadAccounts();
   if(authMode==='signup'){
     if(accounts[email]){ authError('An account with that email already exists. Try logging in.'); return false; }
-    accounts[email]={ name:name||email.split('@')[0], pw:hashPw(pw), provider:'email' };
+    accounts[email]={ name:name||email.split('@')[0], pw:hashPw(pw), provider:'email', role:isAdmin?'admin':'driver' };
     saveAccounts(accounts); localStorage.setItem(SESS_KEY,email); paintUser(demoUser()); closeAuth();
     toast('Account created — welcome, '+(accounts[email].name.split(' ')[0])+'!', true);
   } else {
