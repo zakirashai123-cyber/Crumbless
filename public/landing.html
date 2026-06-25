@@ -207,6 +207,15 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
 .dash-value{font-family:var(--display);font-weight:600;font-size:1.5rem;color:var(--ink);margin-top:8px}
 .dash-value.mono{font-family:var(--mono);color:var(--leaf-600)}
 .dash-actions{margin-top:28px;display:flex;flex-wrap:wrap;gap:12px}
+
+/* ---- optional-license checkbox + locked claim button ---- */
+.lic-optout{display:flex;align-items:flex-start;gap:8px;font-size:.8rem;color:var(--muted);margin:-4px 0 14px;cursor:pointer;font-weight:500;line-height:1.4}
+.lic-optout input{margin-top:2px;flex:none;cursor:pointer}
+.claim-locked{position:relative;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-top:12px;background:var(--line);color:var(--muted);border:1px dashed #b3c3b3;border-radius:999px;padding:.55rem 1rem;font-family:var(--sans);font-weight:700;font-size:.85rem;cursor:pointer;text-decoration:line-through;transition:.2s;overflow:visible}
+.claim-locked:hover{background:#e6ede6;border-color:var(--muted)}
+.claim-locked .padlock{position:absolute;top:-16px;right:18px;width:26px;height:30px;transform-origin:top center;animation:dangle 2.4s ease-in-out infinite;filter:drop-shadow(0 3px 4px rgba(10,36,23,.28));text-decoration:none;line-height:0}
+@keyframes dangle{0%,100%{transform:rotate(-13deg)}50%{transform:rotate(13deg)}}
+@media(prefers-reduced-motion:reduce){.claim-locked .padlock{animation:none}}
 </style>
 </head>
 <body>
@@ -411,6 +420,9 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
       <label class="field" id="licenseField" style="display:none"><span>Driver's license</span>
         <input class="inp" id="authLicense" type="file" accept="image/*,.pdf">
         <span class="lic-hint">Upload a clear photo or scan of your driver's license — required to drive for Crumbless.</span></label>
+      <label class="lic-optout" id="noLicenseRow" style="display:none">
+        <input type="checkbox" id="authNoLicense" onchange="onNoLicenseToggle()">
+        <span>I don't have a driver's license yet — let me just browse for now</span></label>
       <button class="btn btn-leaf btn-block" type="submit" id="authSubmit">Log in</button>
     </form>
 
@@ -543,6 +555,7 @@ function paintUser(u){
   } else {
     slot.innerHTML=`<button class="btn btn-ghost btn-sm" onclick="openAuth('login')">Log in</button>`;
   }
+  try { if(typeof render==='function') render(); } catch(e){}  // refresh demo lock state
 }
 
 /* ---- user dashboard ---- */
@@ -578,20 +591,23 @@ function setAuthMode(mode){
   document.getElementById('authTitle').textContent = signup?'Create your account':'Welcome back';
   document.getElementById('authSub').textContent   = signup?'Join Crumbless to post food, drive routes, and track hours.':'Log in to your Crumbless account.';
   document.getElementById('nameField').style.display = signup?'block':'none';
-  document.getElementById('licenseField').style.display = signup?'block':'none';
   document.getElementById('authSubmit').textContent  = signup?'Create account':'Log in';
   document.getElementById('authPassword').setAttribute('autocomplete', signup?'new-password':'current-password');
   document.getElementById('authToggleBtn').style.display = signup?'none':'flex';
   document.getElementById('authSwitch').style.display    = signup?'block':'none';
-  if(signup) onAuthEmailInput();
+  refreshLicenseVisibility();
 }
 
-/* hide the license upload when the admin email is entered */
-function onAuthEmailInput(){
-  if(authMode!=='signup') return;
+/* license upload shows only for non-admin signups that haven't opted out */
+function refreshLicenseVisibility(){
+  const signup = authMode==='signup';
   const isAdmin = document.getElementById('authEmail').value.trim().toLowerCase()===ADMIN_EMAIL;
-  document.getElementById('licenseField').style.display = isAdmin ? 'none' : 'block';
+  const noLic = document.getElementById('authNoLicense').checked;
+  document.getElementById('noLicenseRow').style.display = (signup && !isAdmin) ? 'flex' : 'none';
+  document.getElementById('licenseField').style.display = (signup && !isAdmin && !noLic) ? 'block' : 'none';
 }
+function onAuthEmailInput(){ refreshLicenseVisibility(); }
+function onNoLicenseToggle(){ refreshLicenseVisibility(); }
 
 /* upload a driver's license to Supabase Storage; returns the stored path */
 async function uploadLicense(userId, file){
@@ -614,9 +630,10 @@ async function submitAuth(e){
   if(pw.length<6){ authError('Password must be at least 6 characters.'); return false; }
 
   const isAdmin = email===ADMIN_EMAIL;
+  const noLicense = document.getElementById('authNoLicense').checked;
   const licenseFile = document.getElementById('authLicense').files[0];
-  if(authMode==='signup' && !isAdmin){
-    if(!licenseFile){ authError('Please upload a photo of your driver’s license to sign up.'); return false; }
+  if(authMode==='signup' && !isAdmin && !noLicense){
+    if(!licenseFile){ authError('Upload your license, or check the box below to browse without one.'); return false; }
     if(licenseFile.size > 6*1024*1024){ authError('That file is too large — please use an image under 6 MB.'); return false; }
   }
 
@@ -746,6 +763,10 @@ function doPost(e){
 function doCancel(id){ DB.cancelPickup(id); toast('Pickup cancelled.'); render(); }
 
 /* ---------- student dashboard ---------- */
+/* a yellow padlock that dangles; only verified drivers (license on file) can claim */
+const PADLOCK_SVG = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3" stroke="#F2B441" stroke-width="2.6" stroke-linecap="round"/><rect x="4" y="10" width="16" height="11" rx="2.6" fill="#F2B441"/><circle cx="12" cy="15" r="1.7" fill="#0A2417"/><rect x="11.2" y="15.4" width="1.6" height="3.4" rx="0.8" fill="#0A2417"/></svg>';
+function canDrive(){ const u=CURRENT_USER; return !!(u && u.user_metadata && u.user_metadata.license_path); }
+
 function renderStu(){
   const open=DB.listOpen();
   const active=DB.listMyActive();
@@ -772,7 +793,9 @@ function renderStu(){
       <div class="between"><div><p style="font-weight:700">${esc(p.food)}</p><p class="small muted">${esc(p.businessName)}</p></div><span class="leafnum small">+${p.hoursCredit}h</span></div>
       <div class="mt12" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${catChip(p.category)}<span class="small muted">${esc(p.quantity)} · ${esc(p.pickupWindow)}${p.distanceMiles?(' · '+p.distanceMiles+' mi'):''}</span></div>
       <div class="small muted mt8">→ ${esc(siteName(p.dropoffSiteId))}</div>
-      <button class="btn btn-leaf btn-sm mt12" style="width:100%;justify-content:center" onclick="doClaim('${p.id}')">Claim this route</button>
+      ${canDrive()
+        ? `<button class="btn btn-leaf btn-sm mt12" style="width:100%;justify-content:center" onclick="doClaim('${p.id}')">Claim this route</button>`
+        : `<button class="claim-locked" onclick="openAuth('login')" title="Sign in as a verified driver to claim routes"><span>Claim this route</span><span class="padlock">${PADLOCK_SVG}</span></button>`}
     </li>`).join('') : `<div class="empty">No open routes right now. Switch to the business side and post some surplus food to see one appear here.</div>`;
 
   const histHtml = history.length? history.map(h=>`<li class="between" style="border-bottom:1px solid var(--line);padding-bottom:8px"><span class="small muted">${new Date(h.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})} · ${esc(h.food)} → ${esc(h.shelter)}</span><span class="leafnum small">+${h.hours}h</span></li>`).join('') : `<p class="small muted">No deliveries logged yet. Claim a route and complete it to earn verified hours.</p>`;
