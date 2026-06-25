@@ -462,28 +462,59 @@ function toast(msg, success){
 }
 
 /* =========================================================================
-   Auth — self-contained accounts in localStorage (email/password fully work).
-   Google/Apple are demo sign-ins; wire them to real OAuth later (see README).
+   Auth — uses Supabase when configured, else a local demo fallback.
+
+   >>> TO GO LIVE: paste your two Supabase values below. <<<
+   Find them in Supabase → Project Settings → API.
+   Until both are filled, the site keeps working with the local demo login.
    ========================================================================= */
+const SUPABASE_URL = "https://ncbfrdirkqkqepydvcbz.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jYmZyZGlya3FrcWVweWR2Y2J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNDUyNzEsImV4cCI6MjA5NzkyMTI3MX0.1rX049x-pq-PkAFKy8ma3-OGlbjToPUMLu_wmjN4pxs";
+const supaEnabled = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
+let supa = null;
+
 const AUTH_KEY='crumbless_accounts', SESS_KEY='crumbless_session';
 let authMode='login';
+
+/* ---- init: load Supabase client only when configured ---- */
+function initAuth(){
+  if(supaEnabled){
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    s.onload=()=>{
+      supa=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      supa.auth.onAuthStateChange((_evt, session)=>paintUser(session?session.user:null));
+      supa.auth.getSession().then(({data})=>paintUser(data.session?data.session.user:null));
+    };
+    s.onerror=()=>{ console.warn('Supabase failed to load — falling back to demo auth.'); paintUser(demoUser()); };
+    document.head.appendChild(s);
+  } else {
+    paintUser(demoUser());
+  }
+}
+
+/* ---- demo (localStorage) helpers ---- */
 function loadAccounts(){ try{ return JSON.parse(localStorage.getItem(AUTH_KEY))||{}; }catch(e){ return {}; } }
 function saveAccounts(a){ localStorage.setItem(AUTH_KEY, JSON.stringify(a)); }
 function hashPw(s){ let h=5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h)^s.charCodeAt(i); } return (h>>>0).toString(36); }
-function currentUser(){ const e=localStorage.getItem(SESS_KEY); if(!e) return null; const a=loadAccounts(); return a[e]?{email:e,...a[e]}:null; }
-function setSession(email){ localStorage.setItem(SESS_KEY, email); renderAuthSlot(); }
-function logout(){ localStorage.removeItem(SESS_KEY); renderAuthSlot(); toast('Logged out.'); }
+function demoUser(){ const e=localStorage.getItem(SESS_KEY); if(!e) return null; const a=loadAccounts(); return a[e]?{email:e, name:a[e].name}:null; }
 
-function renderAuthSlot(){
+/* ---- nav rendering (handles Supabase or demo user objects) ---- */
+function userName(u){ if(!u) return ''; const m=u.user_metadata||{}; return u.name || m.full_name || m.name || (u.email||'').split('@')[0]; }
+function paintUser(u){
   const slot=document.getElementById('authSlot'); if(!slot) return;
-  const u=currentUser();
   if(u){
-    const name=u.name||u.email.split('@')[0];
-    const initial=name.trim()[0].toUpperCase();
-    slot.innerHTML=`<span class="user-chip" title="${esc(u.email)}"><span class="avatar">${esc(initial)}</span><span>${esc(name.split(' ')[0])}</span></span> <button class="btn btn-ghost btn-sm" onclick="logout()">Log out</button>`;
+    const name=userName(u); const initial=(name||'?').trim()[0].toUpperCase();
+    slot.innerHTML=`<span class="user-chip" title="${esc(u.email||'')}"><span class="avatar">${esc(initial)}</span><span>${esc(name.split(' ')[0])}</span></span> <button class="btn btn-ghost btn-sm" onclick="logout()">Log out</button>`;
   } else {
     slot.innerHTML=`<button class="btn btn-ghost btn-sm" onclick="openAuth('login')">Log in</button>`;
   }
+}
+
+async function logout(){
+  if(supaEnabled && supa){ await supa.auth.signOut(); }
+  else { localStorage.removeItem(SESS_KEY); paintUser(null); }
+  toast('Logged out.');
 }
 
 function authError(msg){ const e=document.getElementById('authError'); e.textContent=msg; e.classList.toggle('show', !!msg); }
@@ -503,36 +534,56 @@ function setAuthMode(mode){
 function openAuth(mode){ setAuthMode(mode||'login'); document.getElementById('authModal').classList.add('open'); setTimeout(()=>document.getElementById('authEmail').focus(),60); }
 function closeAuth(){ document.getElementById('authModal').classList.remove('open'); authError(''); document.getElementById('authForm').reset(); }
 
-function submitAuth(e){
+async function submitAuth(e){
   e.preventDefault();
   const name=document.getElementById('authName').value.trim();
   const email=document.getElementById('authEmail').value.trim().toLowerCase();
   const pw=document.getElementById('authPassword').value;
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ authError('Please enter a valid email address.'); return false; }
   if(pw.length<6){ authError('Password must be at least 6 characters.'); return false; }
+
+  if(supaEnabled && supa){
+    if(authMode==='signup'){
+      const {data,error}=await supa.auth.signUp({ email, password:pw, options:{ data:{ full_name: name||email.split('@')[0] } } });
+      if(error){ authError(error.message); return false; }
+      if(!data.session){ closeAuth(); toast('Almost there — check your email to confirm your account.', true); return false; }
+      closeAuth(); toast('Account created — welcome!', true);
+    } else {
+      const {error}=await supa.auth.signInWithPassword({ email, password:pw });
+      if(error){ authError('Incorrect email or password.'); return false; }
+      closeAuth(); toast('Welcome back!', true);
+    }
+    return false;
+  }
+
+  /* ---- demo fallback ---- */
   const accounts=loadAccounts();
   if(authMode==='signup'){
     if(accounts[email]){ authError('An account with that email already exists. Try logging in.'); return false; }
     accounts[email]={ name:name||email.split('@')[0], pw:hashPw(pw), provider:'email' };
-    saveAccounts(accounts); setSession(email); closeAuth();
+    saveAccounts(accounts); localStorage.setItem(SESS_KEY,email); paintUser(demoUser()); closeAuth();
     toast('Account created — welcome, '+(accounts[email].name.split(' ')[0])+'!', true);
   } else {
     const acct=accounts[email];
     if(!acct || acct.pw!==hashPw(pw)){ authError('Incorrect email or password.'); return false; }
-    setSession(email); closeAuth();
+    localStorage.setItem(SESS_KEY,email); paintUser(demoUser()); closeAuth();
     toast('Welcome back, '+((acct.name||email).split(' ')[0])+'!', true);
   }
   return false;
 }
 
-/* Demo social sign-in. Replace with real OAuth (Google Identity Services /
-   Sign in with Apple) — see the setup notes. */
-function oauthSignIn(provider){
+async function oauthSignIn(provider){
+  if(supaEnabled && supa){
+    const {error}=await supa.auth.signInWithOAuth({ provider, options:{ redirectTo: location.origin+location.pathname } });
+    if(error){ authError(provider==='apple' ? 'Apple sign-in isn’t enabled yet.' : error.message); }
+    return; // the browser redirects to the provider on success
+  }
+  /* ---- demo fallback ---- */
   const label = provider==='google'?'Google':'Apple';
   const email = provider==='google'?'you@gmail.com':'you@icloud.com';
   const accounts=loadAccounts();
   if(!accounts[email]) accounts[email]={ name:label+' User', provider };
-  saveAccounts(accounts); setSession(email); closeAuth();
+  saveAccounts(accounts); localStorage.setItem(SESS_KEY,email); paintUser(demoUser()); closeAuth();
   toast('Signed in with '+label+'.', true);
 }
 
@@ -746,7 +797,7 @@ function onScroll(){
 window.addEventListener('scroll',onScroll,{passive:true});
 window.addEventListener('resize',onScroll);
 
-render(); onScroll(); renderAuthSlot();
+render(); onScroll(); initAuth();
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeAuth(); });
 </script>
 </body>
