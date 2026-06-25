@@ -216,6 +216,9 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
 .claim-locked .padlock{position:absolute;top:-16px;right:18px;width:26px;height:30px;transform-origin:top center;animation:dangle 2.4s ease-in-out infinite;filter:drop-shadow(0 3px 4px rgba(10,36,23,.28));text-decoration:none;line-height:0}
 @keyframes dangle{0%,100%{transform:rotate(-13deg)}50%{transform:rotate(13deg)}}
 @media(prefers-reduced-motion:reduce){.claim-locked .padlock{animation:none}}
+.seg{display:flex;gap:8px;margin-top:4px}
+.seg-btn{flex:1;border:1px solid var(--line);background:var(--cream);color:var(--muted);border-radius:10px;padding:10px;font-family:var(--sans);font-weight:700;font-size:.85rem;cursor:pointer;transition:.2s}
+.seg-btn.active{background:var(--sprout-soft);border-color:var(--leaf);color:var(--forest)}
 </style>
 </head>
 <body>
@@ -391,7 +394,7 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
       <div class="dash-card"><p class="dash-label">Member since</p><p class="dash-value" id="dashSince">&mdash;</p></div>
     </div>
     <div class="dash-actions">
-      <button class="btn btn-leaf" onclick="closeDashboard(); document.getElementById('demo').scrollIntoView({behavior:'smooth'})">Browse open pickups &rarr;</button>
+      <button class="btn btn-leaf" onclick="closeDashboard(); document.getElementById('demo').scrollIntoView({behavior:'smooth'})">Go to your demo &rarr;</button>
       <button class="btn btn-ghost" onclick="closeDashboard(); logout()">Log out</button>
     </div>
   </div>
@@ -411,6 +414,12 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
     <div class="auth-error" id="authError"></div>
 
     <form class="auth-form" id="authForm" onsubmit="return submitAuth(event)">
+      <div id="acctTypeRow" style="display:none;margin-bottom:16px"><span style="display:block;font-size:.85rem;font-weight:700;margin-bottom:6px">I'm signing up as a&hellip;</span>
+        <div class="seg">
+          <button type="button" class="seg-btn active" id="segDriver" onclick="setSignupType('driver')">🚗 Driver</button>
+          <button type="button" class="seg-btn" id="segBusiness" onclick="setSignupType('business')">🏪 Business</button>
+        </div>
+      </div>
       <label class="field" id="nameField" style="display:none"><span>Full name</span>
         <input class="inp" id="authName" placeholder="Your name" autocomplete="name"></label>
       <label class="field"><span>Email</span>
@@ -518,6 +527,7 @@ const AUTH_KEY='crumbless_accounts', SESS_KEY='crumbless_session';
 const ADMIN_EMAIL='zakirashai@crumbless.org';   // exempt from license, tagged as Admin
 let authMode='login';
 let CURRENT_USER=null;
+let signupType='driver';   // 'driver' | 'business' (chosen at signup)
 
 /* ---- init: load Supabase client only when configured ---- */
 function initAuth(){
@@ -555,7 +565,7 @@ function paintUser(u){
   } else {
     slot.innerHTML=`<button class="btn btn-ghost btn-sm" onclick="openAuth('login')">Log in</button>`;
   }
-  try { if(typeof render==='function') render(); } catch(e){}  // refresh demo lock state
+  try { if(typeof applyDemoModeForUser==='function') applyDemoModeForUser(); } catch(e){}  // refresh demo view + lock state
 }
 
 /* ---- user dashboard ---- */
@@ -568,8 +578,8 @@ async function openDashboard(){
   const lic  = (u.user_metadata&&u.user_metadata.license_path);
   document.getElementById('dashName').textContent  = 'Welcome, '+name.split(' ')[0];
   document.getElementById('dashEmail').textContent = u.email||'';
-  document.getElementById('dashRole').textContent  = role==='admin' ? 'Administrator' : 'Student Driver';
-  document.getElementById('dashLicense').textContent = role==='admin' ? 'Not required (admin)' : (lic ? 'On file ✓' : 'Not on file yet');
+  document.getElementById('dashRole').textContent  = role==='admin' ? 'Administrator' : (role==='business' ? 'Business' : 'Student Driver');
+  document.getElementById('dashLicense').textContent = (role==='admin'||role==='business') ? 'Not required' : (lic ? 'On file ✓' : 'Not on file yet');
   document.getElementById('dashHours').textContent = '0.0';
   document.getElementById('dashSince').textContent = u.created_at ? new Date(u.created_at).toLocaleDateString('en-US',{month:'long',year:'numeric'}) : 'Today';
   document.getElementById('dashOverlay').classList.add('open');
@@ -595,16 +605,25 @@ function setAuthMode(mode){
   document.getElementById('authPassword').setAttribute('autocomplete', signup?'new-password':'current-password');
   document.getElementById('authToggleBtn').style.display = signup?'none':'flex';
   document.getElementById('authSwitch').style.display    = signup?'block':'none';
-  refreshLicenseVisibility();
+  if(signup) setSignupType('driver'); else refreshLicenseVisibility();
 }
 
-/* license upload shows only for non-admin signups that haven't opted out */
+/* the account-type picker + license fields only show for non-admin signups;
+   the license (and its opt-out) only show when signing up as a Driver */
 function refreshLicenseVisibility(){
   const signup = authMode==='signup';
   const isAdmin = document.getElementById('authEmail').value.trim().toLowerCase()===ADMIN_EMAIL;
+  const isDriver = signupType==='driver';
   const noLic = document.getElementById('authNoLicense').checked;
-  document.getElementById('noLicenseRow').style.display = (signup && !isAdmin) ? 'flex' : 'none';
-  document.getElementById('licenseField').style.display = (signup && !isAdmin && !noLic) ? 'block' : 'none';
+  document.getElementById('acctTypeRow').style.display = (signup && !isAdmin) ? 'block' : 'none';
+  document.getElementById('noLicenseRow').style.display = (signup && !isAdmin && isDriver) ? 'flex' : 'none';
+  document.getElementById('licenseField').style.display = (signup && !isAdmin && isDriver && !noLic) ? 'block' : 'none';
+}
+function setSignupType(t){
+  signupType=t;
+  document.getElementById('segDriver').classList.toggle('active', t==='driver');
+  document.getElementById('segBusiness').classList.toggle('active', t==='business');
+  refreshLicenseVisibility();
 }
 function onAuthEmailInput(){ refreshLicenseVisibility(); }
 function onNoLicenseToggle(){ refreshLicenseVisibility(); }
@@ -630,23 +649,24 @@ async function submitAuth(e){
   if(pw.length<6){ authError('Password must be at least 6 characters.'); return false; }
 
   const isAdmin = email===ADMIN_EMAIL;
+  const acctRole = isAdmin ? 'admin' : signupType;   // 'admin' | 'driver' | 'business'
   const noLicense = document.getElementById('authNoLicense').checked;
   const licenseFile = document.getElementById('authLicense').files[0];
-  if(authMode==='signup' && !isAdmin && !noLicense){
+  if(authMode==='signup' && acctRole==='driver' && !noLicense){
     if(!licenseFile){ authError('Upload your license, or check the box below to browse without one.'); return false; }
     if(licenseFile.size > 6*1024*1024){ authError('That file is too large — please use an image under 6 MB.'); return false; }
   }
 
   if(supaEnabled && supa){
     if(authMode==='signup'){
-      const {data,error}=await supa.auth.signUp({ email, password:pw, options:{ data:{ full_name: name||email.split('@')[0], role: isAdmin?'admin':'driver' } } });
+      const {data,error}=await supa.auth.signUp({ email, password:pw, options:{ data:{ full_name: name||email.split('@')[0], role: acctRole } } });
       if(error){ authError(error.message); return false; }
       if(!data.session){ closeAuth(); toast('Almost there — check your email to confirm your account.', true); return false; }
-      if(!isAdmin && licenseFile){
+      if(acctRole==='driver' && licenseFile){
         try { const path=await uploadLicense(data.user.id, licenseFile); await supa.auth.updateUser({ data:{ license_path: path } }); }
         catch(err){ console.warn('License upload failed (is the "licenses" storage bucket set up?):', err.message); }
       }
-      closeAuth(); toast(isAdmin?'Admin account ready — welcome!':'Account created — welcome!', true);
+      closeAuth(); toast(isAdmin?'Admin account ready — welcome!':('Account created — welcome'+(acctRole==='business'?', partner':'')+'!'), true);
     } else {
       const {error}=await supa.auth.signInWithPassword({ email, password:pw });
       if(error){ authError('Incorrect email or password.'); return false; }
@@ -659,7 +679,7 @@ async function submitAuth(e){
   const accounts=loadAccounts();
   if(authMode==='signup'){
     if(accounts[email]){ authError('An account with that email already exists. Try logging in.'); return false; }
-    accounts[email]={ name:name||email.split('@')[0], pw:hashPw(pw), provider:'email', role:isAdmin?'admin':'driver' };
+    accounts[email]={ name:name||email.split('@')[0], pw:hashPw(pw), provider:'email', role:acctRole };
     saveAccounts(accounts); localStorage.setItem(SESS_KEY,email); paintUser(demoUser()); closeAuth();
     toast('Account created — welcome, '+(accounts[email].name.split(' ')[0])+'!', true);
   } else {
@@ -765,7 +785,18 @@ function doCancel(id){ DB.cancelPickup(id); toast('Pickup cancelled.'); render()
 /* ---------- student dashboard ---------- */
 /* a yellow padlock that dangles; only verified drivers (license on file) can claim */
 const PADLOCK_SVG = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3" stroke="#F2B441" stroke-width="2.6" stroke-linecap="round"/><rect x="4" y="10" width="16" height="11" rx="2.6" fill="#F2B441"/><circle cx="12" cy="15" r="1.7" fill="#0A2417"/><rect x="11.2" y="15.4" width="1.6" height="3.4" rx="0.8" fill="#0A2417"/></svg>';
-function canDrive(){ const u=CURRENT_USER; return !!(u && u.user_metadata && u.user_metadata.license_path); }
+function acctRoleOf(u){ return u ? ((u.user_metadata&&u.user_metadata.role)||u.role||'driver') : null; }
+function canDrive(){ const u=CURRENT_USER; if(!u) return false; const r=acctRoleOf(u); if(r==='admin') return true; return r==='driver' && !!(u.user_metadata&&u.user_metadata.license_path); }
+
+/* choose which side of the demo to show based on who's logged in:
+   logged-out or admin -> both (toggle visible); driver -> student only; business -> business only */
+function applyDemoModeForUser(){
+  const head=document.querySelector('.role-head');
+  const r=acctRoleOf(CURRENT_USER);
+  if(!CURRENT_USER || r==='admin'){ if(head) head.style.display=''; render(); }
+  else if(r==='business'){ if(head) head.style.display='none'; setRole('business'); }
+  else { if(head) head.style.display='none'; setRole('student'); }
+}
 
 function renderStu(){
   const open=DB.listOpen();
