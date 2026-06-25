@@ -157,6 +157,38 @@ label.field>span{display:block;font-size:.85rem;font-weight:700;margin-bottom:6p
 .mt8{margin-top:8px}.mt12{margin-top:12px}.mt16{margin-top:16px}.mt24{margin-top:24px}
 .bt{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
 .leafnum{font-family:var(--mono);font-weight:700;color:var(--leaf-600)}
+
+/* ---- auth: nav actions + login modal ---- */
+.nav-actions{display:flex;align-items:center;gap:10px}
+.user-chip{display:inline-flex;align-items:center;gap:8px;font-size:.85rem;font-weight:700;color:var(--text)}
+.avatar{display:grid;place-items:center;height:30px;width:30px;border-radius:50%;background:var(--sprout-soft);color:var(--forest);font-size:.8rem;font-weight:800;flex:none}
+@media(max-width:520px){.user-chip span:last-child{display:none}}
+
+.modal-overlay{position:fixed;inset:0;z-index:100;background:rgba(10,36,23,.66);display:none;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s ease}
+.modal-overlay.open{display:flex}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{background:var(--cream);border:1px solid var(--line);border-radius:22px;width:100%;max-width:420px;padding:28px;box-shadow:0 30px 80px -30px rgba(10,36,23,.5);animation:modalIn .25s ease;max-height:92vh;overflow:auto}
+@keyframes modalIn{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.modal h2{font-family:var(--display);font-weight:600;font-size:1.6rem;color:var(--ink);letter-spacing:-.01em}
+.modal .msub{color:var(--muted);font-size:.9rem;margin-top:4px}
+.modal-close{background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.5rem;line-height:1;padding:2px 8px;border-radius:8px}
+.modal-close:hover{background:var(--cream-100);color:var(--text)}
+.oauth{display:flex;flex-direction:column;gap:10px;margin-top:22px}
+.oauth-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;border-radius:12px;padding:11px;font-family:var(--sans);font-weight:700;font-size:.92rem;cursor:pointer;border:1px solid var(--line);background:#fff;color:#3c4043;transition:.2s}
+.oauth-btn:hover{background:#f7f9f6;border-color:rgba(10,36,23,.25)}
+.oauth-btn.apple{background:#000;color:#fff;border-color:#000}
+.oauth-btn.apple:hover{background:#1a1a1a}
+.oauth-btn svg{height:18px;width:18px;flex:none}
+.divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--muted);font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.auth-error{background:rgba(185,28,28,.08);color:#b91c1c;border-radius:10px;padding:9px 12px;font-size:.82rem;margin-bottom:14px;display:none}
+.auth-error.show{display:block}
+.auth-form .field{margin-bottom:14px}
+.btn-block{width:100%;justify-content:center}
+.auth-switch{text-align:center;margin-top:14px;font-size:.86rem;color:var(--muted)}
+.auth-switch button{background:none;border:none;color:var(--leaf-600);font-weight:700;cursor:pointer;font-family:var(--sans);font-size:.86rem}
+.auth-note{margin-top:16px;font-size:.72rem;color:var(--muted);text-align:center;line-height:1.5}
 </style>
 </head>
 <body>
@@ -171,7 +203,10 @@ label.field>span{display:block;font-size:.85rem;font-weight:700;margin-bottom:6p
       <a href="#why">Why us</a>
       <a href="#demo">Live demo</a>
     </div>
-    <a href="#demo" class="btn btn-leaf btn-sm">Try the demo</a>
+    <div class="nav-actions">
+      <span id="authSlot"><button class="btn btn-ghost btn-sm" onclick="openAuth('login')">Log in</button></span>
+      <a href="#demo" class="btn btn-leaf btn-sm">Try the demo</a>
+    </div>
   </div>
 </nav>
 
@@ -314,6 +349,49 @@ label.field>span{display:block;font-size:.85rem;font-weight:700;margin-bottom:6p
   </div>
 </footer>
 
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="authModal" onclick="if(event.target===this) closeAuth()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <div class="modal-head">
+      <div>
+        <h2 id="authTitle">Welcome back</h2>
+        <p class="msub" id="authSub">Log in to your Crumbless account.</p>
+      </div>
+      <button class="modal-close" onclick="closeAuth()" aria-label="Close">&times;</button>
+    </div>
+
+    <div class="oauth">
+      <button class="oauth-btn" type="button" onclick="oauthSignIn('google')">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+      <button class="oauth-btn apple" type="button" onclick="oauthSignIn('apple')">
+        <svg viewBox="0 0 384 512" fill="currentColor" aria-hidden="true"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+        Continue with Apple
+      </button>
+    </div>
+
+    <div class="divider">or</div>
+
+    <div class="auth-error" id="authError"></div>
+
+    <form class="auth-form" id="authForm" onsubmit="return submitAuth(event)">
+      <label class="field" id="nameField" style="display:none"><span>Full name</span>
+        <input class="inp" id="authName" placeholder="Your name" autocomplete="name"></label>
+      <label class="field"><span>Email</span>
+        <input class="inp" id="authEmail" type="email" placeholder="you@email.com" autocomplete="email" required></label>
+      <label class="field"><span>Password</span>
+        <input class="inp" id="authPassword" type="password" placeholder="At least 6 characters" autocomplete="current-password" required></label>
+      <button class="btn btn-leaf btn-block" type="submit" id="authSubmit">Log in</button>
+    </form>
+
+    <button class="btn btn-ghost btn-block" id="authToggleBtn" style="margin-top:10px" onclick="setAuthMode('signup')">Create account</button>
+    <p class="auth-switch" id="authSwitch" style="display:none">Already have an account? <button type="button" onclick="setAuthMode('login')">Log in</button></p>
+
+    <p class="auth-note">Crumbless will never share your details. By continuing you agree to our terms.</p>
+  </div>
+</div>
+
 <div class="toasts" id="toasts"></div>
 <script>
 /* =========================================================================
@@ -381,6 +459,81 @@ function toast(msg, success){
   const el=document.createElement('div'); el.className='toast'+(success?' success':''); el.textContent=msg;
   document.getElementById('toasts').appendChild(el);
   setTimeout(()=>el.remove(),3600);
+}
+
+/* =========================================================================
+   Auth — self-contained accounts in localStorage (email/password fully work).
+   Google/Apple are demo sign-ins; wire them to real OAuth later (see README).
+   ========================================================================= */
+const AUTH_KEY='crumbless_accounts', SESS_KEY='crumbless_session';
+let authMode='login';
+function loadAccounts(){ try{ return JSON.parse(localStorage.getItem(AUTH_KEY))||{}; }catch(e){ return {}; } }
+function saveAccounts(a){ localStorage.setItem(AUTH_KEY, JSON.stringify(a)); }
+function hashPw(s){ let h=5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h)^s.charCodeAt(i); } return (h>>>0).toString(36); }
+function currentUser(){ const e=localStorage.getItem(SESS_KEY); if(!e) return null; const a=loadAccounts(); return a[e]?{email:e,...a[e]}:null; }
+function setSession(email){ localStorage.setItem(SESS_KEY, email); renderAuthSlot(); }
+function logout(){ localStorage.removeItem(SESS_KEY); renderAuthSlot(); toast('Logged out.'); }
+
+function renderAuthSlot(){
+  const slot=document.getElementById('authSlot'); if(!slot) return;
+  const u=currentUser();
+  if(u){
+    const name=u.name||u.email.split('@')[0];
+    const initial=name.trim()[0].toUpperCase();
+    slot.innerHTML=`<span class="user-chip" title="${esc(u.email)}"><span class="avatar">${esc(initial)}</span><span>${esc(name.split(' ')[0])}</span></span> <button class="btn btn-ghost btn-sm" onclick="logout()">Log out</button>`;
+  } else {
+    slot.innerHTML=`<button class="btn btn-ghost btn-sm" onclick="openAuth('login')">Log in</button>`;
+  }
+}
+
+function authError(msg){ const e=document.getElementById('authError'); e.textContent=msg; e.classList.toggle('show', !!msg); }
+
+function setAuthMode(mode){
+  authMode=mode; authError('');
+  const signup = mode==='signup';
+  document.getElementById('authTitle').textContent = signup?'Create your account':'Welcome back';
+  document.getElementById('authSub').textContent   = signup?'Join Crumbless to post food, drive routes, and track hours.':'Log in to your Crumbless account.';
+  document.getElementById('nameField').style.display = signup?'block':'none';
+  document.getElementById('authSubmit').textContent  = signup?'Create account':'Log in';
+  document.getElementById('authPassword').setAttribute('autocomplete', signup?'new-password':'current-password');
+  document.getElementById('authToggleBtn').style.display = signup?'none':'flex';
+  document.getElementById('authSwitch').style.display    = signup?'block':'none';
+}
+
+function openAuth(mode){ setAuthMode(mode||'login'); document.getElementById('authModal').classList.add('open'); setTimeout(()=>document.getElementById('authEmail').focus(),60); }
+function closeAuth(){ document.getElementById('authModal').classList.remove('open'); authError(''); document.getElementById('authForm').reset(); }
+
+function submitAuth(e){
+  e.preventDefault();
+  const name=document.getElementById('authName').value.trim();
+  const email=document.getElementById('authEmail').value.trim().toLowerCase();
+  const pw=document.getElementById('authPassword').value;
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ authError('Please enter a valid email address.'); return false; }
+  if(pw.length<6){ authError('Password must be at least 6 characters.'); return false; }
+  const accounts=loadAccounts();
+  if(authMode==='signup'){
+    if(accounts[email]){ authError('An account with that email already exists. Try logging in.'); return false; }
+    accounts[email]={ name:name||email.split('@')[0], pw:hashPw(pw), provider:'email' };
+    saveAccounts(accounts); setSession(email); closeAuth();
+    toast('Account created — welcome, '+(accounts[email].name.split(' ')[0])+'!', true);
+  } else {
+    const acct=accounts[email];
+    if(!acct || acct.pw!==hashPw(pw)){ authError('Incorrect email or password.'); return false; }
+    setSession(email); closeAuth();
+    toast('Welcome back, '+((acct.name||email).split(' ')[0])+'!', true);
+  }
+  return false;
+}
+
+/* Demo social sign-in. Replace with real OAuth (Google Identity Services /
+   Sign in with Apple) — see the setup notes. */
+function oauthSignIn(provider){
+  const label = provider==='google'?'Google':'Apple';
+  const email = provider==='google'?'you@gmail.com':'you@icloud.com';
+  const accounts=loadAccounts();
+  if(!accounts[email]) accounts[email]={ name:label+' User', provider };
+  saveAccounts(accounts); setSession(email); closeAuth();
+  toast('Signed in with '+label+'.', true);
 }
 
 /* ---------- helpers ---------- */
@@ -593,7 +746,8 @@ function onScroll(){
 window.addEventListener('scroll',onScroll,{passive:true});
 window.addEventListener('resize',onScroll);
 
-render(); onScroll();
+render(); onScroll(); renderAuthSlot();
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeAuth(); });
 </script>
 </body>
 </html>
