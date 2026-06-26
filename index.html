@@ -219,6 +219,40 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
 .seg{display:flex;gap:8px;margin-top:4px}
 .seg-btn{flex:1;border:1px solid var(--line);background:var(--cream);color:var(--muted);border-radius:10px;padding:10px;font-family:var(--sans);font-weight:700;font-size:.85rem;cursor:pointer;transition:.2s}
 .seg-btn.active{background:var(--sprout-soft);border-color:var(--leaf);color:var(--forest)}
+
+/* ---- dashboard 2.0 ---- */
+.dash-id{display:flex;align-items:center;gap:16px}
+.dash-avatar{flex:none;display:grid;place-items:center;width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--leaf),var(--sprout));color:#fff;font-family:var(--display);font-weight:600;font-size:1.7rem;box-shadow:0 8px 22px -10px rgba(30,142,78,.6)}
+.approved-check{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--leaf);color:#fff;font-size:.78rem;vertical-align:middle;margin-left:8px}
+.dash-card-head{display:flex;align-items:center;gap:9px;margin-bottom:4px}
+.dash-card-head .dash-label{margin:0}
+.dash-ico{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:9px}
+.dash-ico svg{width:17px;height:17px}
+.dash-card[data-accent=leaf] .dash-ico{background:rgba(30,142,78,.12);color:var(--leaf)}
+.dash-card[data-accent=sprout] .dash-ico{background:rgba(111,224,138,.25);color:var(--leaf-600)}
+.dash-card[data-accent=honey] .dash-ico{background:rgba(242,180,65,.2);color:#a9710a}
+.dash-card[data-accent=forest] .dash-ico{background:rgba(14,59,34,.1);color:var(--forest)}
+.progress-track{height:8px;border-radius:999px;background:var(--cream-100);overflow:hidden;margin-top:12px}
+.progress-fill{height:100%;border-radius:999px;background:linear-gradient(to right,var(--leaf),var(--sprout));transition:width .9s ease}
+.dash-panel{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px;margin-top:16px}
+.lic-thumb{margin-top:12px;border-radius:12px;border:1px solid var(--line);max-width:100%;max-height:150px;display:block;object-fit:cover}
+.map-preview{position:relative;margin-top:14px;height:200px;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+.map-preview svg{width:100%;height:100%;display:block}
+.map-you-ring{animation:mapPulse 1.9s ease-in-out infinite}
+@keyframes mapPulse{0%,100%{r:7;opacity:.45}50%{r:17;opacity:0}}
+.leaderboard{list-style:none;margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.lb-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:var(--cream-100)}
+.lb-row.me{background:var(--sprout-soft)}
+.lb-rank{font-family:var(--mono);font-weight:700;color:var(--muted);width:24px;text-align:center;flex:none}
+.lb-name{font-weight:700;flex:1}
+.lb-hours{font-family:var(--mono);font-weight:700;color:var(--leaf-600)}
+.confetti{position:fixed;top:-14px;width:9px;height:14px;z-index:130;border-radius:2px;opacity:.95;animation:confettiFall 3.3s linear forwards;pointer-events:none}
+@keyframes confettiFall{to{transform:translateY(108vh) rotate(680deg);opacity:.3}}
+@media(prefers-reduced-motion:reduce){.confetti{display:none}.map-you-ring{animation:none}}
+.social{display:flex;gap:12px;margin-top:14px}
+.social a{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:rgba(251,253,248,.1);color:var(--cream);transition:.2s}
+.social a:hover{background:var(--leaf)}
+.social svg{width:17px;height:17px}
 </style>
 </head>
 <body>
@@ -369,10 +403,16 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
     <div>
       <div class="logo"><span class="plate"><span></span></span><span class="display" style="font-size:1.25rem;color:var(--cream)">Crumbless</span></div>
       <p class="small" style="margin-top:12px;max-width:340px;color:rgba(251,253,248,.7)">Maryland surplus food, re-plated by students — delivered to the door and counted toward the hours that open doors.</p>
+      <div class="social">
+        <a href="#" aria-label="Instagram" title="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none"/></svg></a>
+        <a href="#" aria-label="TikTok" title="TikTok"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.6 5.82a4.28 4.28 0 0 1-1.06-2.82h-3.2v12.27a2.59 2.59 0 1 1-2.59-2.59c.27 0 .53.04.78.12V9.5a5.79 5.79 0 0 0-.78-.05A5.79 5.79 0 1 0 15.33 15V8.9a7.45 7.45 0 0 0 4.34 1.39V7.1a4.28 4.28 0 0 1-3.07-1.28z"/></svg></a>
+        <a href="#" aria-label="X" title="X"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
+        <a href="mailto:hello@crumbless.org" aria-label="Email" title="Email us"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6" stroke-linecap="round"/></svg></a>
+      </div>
       <p class="small" style="margin-top:16px;color:rgba(251,253,248,.5)">A Curious Cardinals project · Made in Maryland</p>
     </div>
     <div><h4>Product</h4><ul><li><a href="#how">How it works</a></li><li><a href="#why">Why Crumbless</a></li><li><a href="#demo">Live demo</a></li></ul></div>
-    <div><h4>Get involved</h4><ul><li><a href="#demo" onclick="setRole('business')">Donate surplus food</a></li><li><a href="#demo" onclick="setRole('student')">Drive &amp; earn hours</a></li><li><a href="#demo">Partner a shelter</a></li></ul></div>
+    <div><h4>Get involved</h4><ul><li><a href="#demo" onclick="setRole('business')">Donate surplus food</a></li><li><a href="#demo" onclick="setRole('student')">Drive &amp; earn hours</a></li><li><a href="#demo">Partner a shelter</a></li><li><a href="mailto:hello@crumbless.org">Contact us</a></li></ul></div>
   </div>
 </footer>
 
@@ -380,23 +420,65 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
 <div class="dash-overlay" id="dashOverlay">
   <div class="dash">
     <div class="dash-top">
-      <div>
-        <p class="eyebrow">Your dashboard</p>
-        <h2 class="display" id="dashName">Welcome</h2>
-        <p class="muted small" id="dashEmail"></p>
+      <div class="dash-id">
+        <div class="dash-avatar" id="dashAvatar">C</div>
+        <div>
+          <p class="eyebrow">Your dashboard</p>
+          <h2 class="display"><span id="dashName">Welcome</span><span class="approved-check" id="dashApproved" title="Verified" style="display:none">&#10003;</span></h2>
+          <p class="muted small" id="dashEmail"></p>
+        </div>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="closeDashboard()">&larr; Back to site</button>
     </div>
+
     <div class="dash-grid">
-      <div class="dash-card"><p class="dash-label">Role</p><p class="dash-value" id="dashRole">Student Driver</p></div>
-      <div class="dash-card"><p class="dash-label">Verified service hours</p><p class="dash-value mono" id="dashHours">0.0</p><p class="muted small" style="margin-top:6px">Your completed deliveries will be logged here.</p></div>
-      <div class="dash-card"><p class="dash-label">Driver's license</p><p class="dash-value" id="dashLicense">&mdash;</p></div>
-      <div class="dash-card"><p class="dash-label">Member since</p><p class="dash-value" id="dashSince">&mdash;</p></div>
+      <div class="dash-card" data-accent="leaf">
+        <div class="dash-card-head"><span class="dash-ico" id="dashRoleIco"></span><p class="dash-label">Role</p></div>
+        <p class="dash-value" id="dashRole">Student Driver</p>
+      </div>
+      <div class="dash-card" data-accent="sprout">
+        <div class="dash-card-head"><span class="dash-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2" stroke-linecap="round"/></svg></span><p class="dash-label">Verified service hours</p></div>
+        <p class="dash-value mono" id="dashHours">0.0</p>
+        <div class="progress-track"><div class="progress-fill" id="dashHoursBar" style="width:0%"></div></div>
+        <p class="muted small" id="dashHoursNote" style="margin-top:8px">0 of 10 hours to your next badge</p>
+      </div>
+      <div class="dash-card" data-accent="honey">
+        <div class="dash-card-head"><span class="dash-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M13 10h5M13 14h5M5 15.5c.4-1.3 1.6-2 3-2s2.6.7 3 2" stroke-linecap="round"/></svg></span><p class="dash-label">Driver's license</p></div>
+        <div id="dashLicenseBody"><p class="dash-value">&mdash;</p></div>
+      </div>
+      <div class="dash-card" data-accent="forest">
+        <div class="dash-card-head"><span class="dash-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4" stroke-linecap="round"/></svg></span><p class="dash-label">Member since</p></div>
+        <p class="dash-value" id="dashSince">&mdash;</p>
+      </div>
     </div>
+
+    <div class="dash-panel">
+      <div class="between"><p class="dash-label">Drivers near you</p><span class="pill pill-soft">Preview</span></div>
+      <div class="map-preview">
+        <svg viewBox="0 0 600 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <rect width="600" height="200" fill="#EAF3EA"/>
+          <path d="M-20 150 Q150 120 330 158 T640 138 V220 H-20Z" fill="#DCEBDC"/>
+          <g stroke="#ffffff" stroke-width="11" stroke-linecap="round"><path d="M60 -10 L150 210"/><path d="M-10 70 L610 115"/><path d="M330 -10 L390 210"/><path d="M-10 165 L610 55"/></g>
+          <g stroke="#cfe0cf" stroke-width="2.5"><path d="M60 -10 L150 210"/><path d="M-10 70 L610 115"/><path d="M330 -10 L390 210"/></g>
+          <g fill="#1E8E4E"><path d="M140 60c-6 0-11 5-11 11 0 8 11 18 11 18s11-10 11-18c0-6-5-11-11-11z"/><path d="M430 95c-6 0-11 5-11 11 0 8 11 18 11 18s11-10 11-18c0-6-5-11-11-11z"/><path d="M250 130c-6 0-11 5-11 11 0 8 11 18 11 18s11-10 11-18c0-6-5-11-11-11z"/></g>
+          <g fill="#ffffff"><circle cx="140" cy="71" r="4"/><circle cx="430" cy="106" r="4"/><circle cx="250" cy="141" r="4"/></g>
+          <circle class="map-you-ring" cx="320" cy="95" r="7" fill="#F2B441"/>
+          <circle cx="320" cy="95" r="7" fill="#F2B441" stroke="#fff" stroke-width="2.5"/>
+        </svg>
+      </div>
+      <p class="muted small" style="margin-top:10px">A live map of nearby drivers &amp; pickups is coming soon.</p>
+    </div>
+
+    <div class="dash-panel">
+      <div class="between"><p class="dash-label">Top student drivers this month</p><span class="pill pill-soft">Sample</span></div>
+      <ol class="leaderboard" id="dashLeaderboard"></ol>
+    </div>
+
     <div class="dash-actions">
       <button class="btn btn-leaf" onclick="closeDashboard(); document.getElementById('demo').scrollIntoView({behavior:'smooth'})">Go to your demo &rarr;</button>
       <button class="btn btn-ghost" onclick="closeDashboard(); logout()">Log out</button>
     </div>
+    <input type="file" id="dashLicenseInput" accept="image/*,.pdf" style="display:none" onchange="dashUploadLicense(this)">
   </div>
 </div>
 
@@ -565,23 +647,86 @@ function paintUser(u){
   } else {
     slot.innerHTML=`<button class="btn btn-ghost btn-sm" onclick="openAuth('login')">Log in</button>`;
   }
+  if(u && !localStorage.getItem('crumbless_welcomed')){ localStorage.setItem('crumbless_welcomed','1'); setTimeout(()=>{ try{ celebrate(); }catch(e){} }, 400); }
   try { if(typeof applyDemoModeForUser==='function') applyDemoModeForUser(); } catch(e){}  // refresh demo view + lock state
 }
 
 /* ---- user dashboard ---- */
+const ICON_CAR='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13l2-5.2A2 2 0 0 1 6.9 6.5h10.2A2 2 0 0 1 19 7.8L21 13" stroke-linecap="round"/><path d="M3 13h18v4a1 1 0 0 1-1 1h-1.2a2 2 0 0 1-3.9 0H9.1a2 2 0 0 1-3.9 0H4a1 1 0 0 1-1-1z"/></svg>';
+const ICON_STORE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9.5h16L18.7 5H5.3zM5 9.5V19h14V9.5M9 19v-5h6v5" stroke-linejoin="round"/></svg>';
+const ICON_SHIELD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v6c0 4.2-3.2 7.4-8 9-4.8-1.6-8-4.8-8-9V6z" stroke-linejoin="round"/></svg>';
+const LEADERBOARD=[{name:'Maya R.',hours:42.0},{name:'Zakir',hours:38.5},{name:'Diego M.',hours:31.0},{name:'Aisha K.',hours:27.5},{name:'Liam P.',hours:19.0}];
+
+function isApproved(u){ const r=acctRoleOf(u); if(r==='admin'||r==='business') return true; return r==='driver' && !!(u.user_metadata&&u.user_metadata.license_path); }
+
+function renderLeaderboard(){
+  const ol=document.getElementById('dashLeaderboard'); if(!ol) return;
+  const medals=['🥇','🥈','🥉'];
+  const me = CURRENT_USER ? userName(CURRENT_USER).split(' ')[0] : 'You';
+  ol.innerHTML = LEADERBOARD.map((e,i)=>`<li class="lb-row"><span class="lb-rank">${medals[i]||(i+1)}</span><span class="lb-name">${esc(e.name)}</span><span class="lb-hours">${e.hours.toFixed(1)}h</span></li>`).join('')
+    + `<li class="lb-row me"><span class="lb-rank">&mdash;</span><span class="lb-name">${esc(me)} (you)</span><span class="lb-hours">0.0h</span></li>`;
+}
+
+async function renderLicenseCard(u, role, lic){
+  const body=document.getElementById('dashLicenseBody'); if(!body) return;
+  if(role==='admin'||role==='business'){ body.innerHTML='<p class="dash-value">Not required</p>'; return; }
+  if(lic){
+    body.innerHTML='<p class="dash-value">On file ✓</p><img class="lic-thumb" id="dashLicThumb" alt="Your license"><button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="document.getElementById(\'dashLicenseInput\').click()">Replace</button>';
+    if(supaEnabled && supa){
+      try{
+        const { data } = await supa.storage.from('licenses').createSignedUrl(lic, 3600);
+        const img=document.getElementById('dashLicThumb');
+        if(data && data.signedUrl && img){
+          if(lic.toLowerCase().endsWith('.pdf')){ const a=document.createElement('a'); a.href=data.signedUrl; a.target='_blank'; a.className='leafnum small'; a.textContent='View uploaded PDF'; a.style.cssText='display:inline-block;margin-top:10px'; img.replaceWith(a); }
+          else { img.src=data.signedUrl; }
+        }
+      }catch(e){}
+    }
+  } else {
+    body.innerHTML='<p class="dash-value">Not on file yet</p><button class="btn btn-leaf btn-sm" style="margin-top:12px" onclick="document.getElementById(\'dashLicenseInput\').click()">Upload license</button>';
+  }
+}
+
+async function dashUploadLicense(input){
+  const file=input.files[0]; if(!file) return; input.value='';
+  if(file.size>6*1024*1024){ toast('That file is too large — use an image under 6 MB.'); return; }
+  if(!(supaEnabled && supa)){ toast('Storage not available.'); return; }
+  try{
+    const { data:{ user } } = await supa.auth.getUser();
+    if(!user){ openAuth('login'); return; }
+    toast('Uploading your license…');
+    const path=await uploadLicense(user.id, file);
+    await supa.auth.updateUser({ data:{ license_path: path } });
+    const { data } = await supa.auth.getUser(); CURRENT_USER = (data&&data.user)||CURRENT_USER;
+    toast('License uploaded ✓', true);
+    openDashboard(); applyDemoModeForUser();
+  }catch(e){ console.warn('dashUploadLicense:', e.message); toast('Upload failed — please try again.'); }
+}
+
+function celebrate(){
+  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const colors=['#1E8E4E','#6FE08A','#F2B441','#BBF0C9','#16763F'];
+  for(let i=0;i<70;i++){ const c=document.createElement('div'); c.className='confetti'; c.style.left=(Math.random()*100)+'vw'; c.style.background=colors[i%colors.length]; c.style.animationDelay=(Math.random()*0.7)+'s'; document.body.appendChild(c); setTimeout(()=>c.remove(),4400); }
+}
+
 async function openDashboard(){
   let u = CURRENT_USER;
   if(!u){ openAuth('login'); return; }
   if(supaEnabled && supa){ try { const { data } = await supa.auth.getUser(); if(data && data.user) u = data.user; } catch(e){} }
-  const name = userName(u);
-  const role = (u.user_metadata&&u.user_metadata.role)||u.role;
-  const lic  = (u.user_metadata&&u.user_metadata.license_path);
-  document.getElementById('dashName').textContent  = 'Welcome, '+name.split(' ')[0];
+  const name = userName(u), role = acctRoleOf(u), lic = (u.user_metadata&&u.user_metadata.license_path);
+  document.getElementById('dashAvatar').textContent = (name||'?').trim()[0].toUpperCase();
+  document.getElementById('dashName').textContent = 'Welcome, '+name.split(' ')[0];
   document.getElementById('dashEmail').textContent = u.email||'';
-  document.getElementById('dashRole').textContent  = role==='admin' ? 'Administrator' : (role==='business' ? 'Business' : 'Student Driver');
-  document.getElementById('dashLicense').textContent = (role==='admin'||role==='business') ? 'Not required' : (lic ? 'On file ✓' : 'Not on file yet');
-  document.getElementById('dashHours').textContent = '0.0';
+  document.getElementById('dashApproved').style.display = isApproved(u) ? 'inline-grid' : 'none';
+  document.getElementById('dashRole').textContent = role==='admin'?'Administrator':(role==='business'?'Business':'Student Driver');
+  document.getElementById('dashRoleIco').innerHTML = role==='business'?ICON_STORE:(role==='admin'?ICON_SHIELD:ICON_CAR);
+  const hrs=0.0, goal=10;
+  document.getElementById('dashHours').textContent = hrs.toFixed(1);
+  document.getElementById('dashHoursBar').style.width = Math.min(100,(hrs/goal)*100)+'%';
+  document.getElementById('dashHoursNote').textContent = hrs.toFixed(0)+' of '+goal+' hours to your next badge';
   document.getElementById('dashSince').textContent = u.created_at ? new Date(u.created_at).toLocaleDateString('en-US',{month:'long',year:'numeric'}) : 'Today';
+  renderLicenseCard(u, role, lic);
+  renderLeaderboard();
   document.getElementById('dashOverlay').classList.add('open');
   window.scrollTo(0,0);
 }
