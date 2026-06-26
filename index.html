@@ -544,13 +544,13 @@ const STUDENT = { id:'stu-zakir', name:'Zakir' };
 
 const store = {
   sites:[
-    {id:'site-howard', name:'Howard County Food Bank', city:'Ellicott City, MD', address:'9820 Patuxent Woods Dr, Ellicott City, MD'},
-    {id:'site-mdfb',   name:'Maryland Food Bank — Howard County', city:'Columbia, MD', address:'8945 Gorman Rd, Columbia, MD'},
-    {id:'site-nourish',name:'Nourish Now', city:'Rockville, MD', address:'1111 Taft St, Rockville, MD'}
+    {id:'site-howard', name:'Riverside Food Bank', city:'Ellicott City, MD', address:'120 Riverside Dr, Ellicott City, MD'},
+    {id:'site-mdfb',   name:'Cedarville Food Bank', city:'Columbia, MD', address:'88 Cedar Park Way, Columbia, MD'},
+    {id:'site-nourish',name:'Open Table Pantry', city:'Rockville, MD', address:'210 Open Table Ln, Rockville, MD'}
   ],
   pickups:[
-    {id:'pk-1', businessId:'biz-folly', businessName:'Folly Quarter Café', food:'Sandwiches & salads', category:'Prepared', quantity:'~15 meals', pickupWindow:'Today 4–6pm', pickupAddress:'12230 Folly Quarter Rd, Ellicott City, MD', dropoffSiteId:'site-howard', status:'open', hoursCredit:1.5, distanceMiles:2.4, createdAt:Date.now()-2100000},
-    {id:'pk-2', businessId:'biz-green', businessName:'Green Valley Grocers', food:'Bread & pastries', category:'Bakery', quantity:'3 boxes', pickupWindow:'Today 5–7pm', pickupAddress:'5400 Green Valley Pkwy, Columbia, MD', dropoffSiteId:'site-mdfb', status:'open', hoursCredit:1.5, distanceMiles:3.1, createdAt:Date.now()-1080000}
+    {id:'pk-1', businessId:'biz-folly', businessName:'Maple Street Café', food:'Sandwiches & salads', category:'Prepared', quantity:'~15 meals', pickupWindow:'Today 4–6pm', pickupAddress:'45 Maple St, Ellicott City, MD', dropoffSiteId:'site-howard', status:'open', hoursCredit:1.5, distanceMiles:2.4, createdAt:Date.now()-2100000},
+    {id:'pk-2', businessId:'biz-green', businessName:'Hillside Grocers', food:'Bread & pastries', category:'Bakery', quantity:'3 boxes', pickupWindow:'Today 5–7pm', pickupAddress:'300 Hillside Ave, Columbia, MD', dropoffSiteId:'site-mdfb', status:'open', hoursCredit:1.5, distanceMiles:3.1, createdAt:Date.now()-1080000}
   ],
   claims:[],
   seq:100
@@ -565,9 +565,9 @@ const DB = {
   listMyActive: () => store.pickups.filter(p=>p.studentId===STUDENT.id && (p.status==='claimed'||p.status==='in_transit')),
   createPickup: inp => {
     const p = {
-      id:'pk-'+(++store.seq), businessId:DEMO_BIZ, businessName:'Folly Quarter Café',
+      id:'pk-'+(++store.seq), businessId:DEMO_BIZ, businessName:'Maple Street Café',
       food:inp.food, category:inp.category, quantity:inp.quantity, pickupWindow:inp.pickupWindow,
-      pickupAddress:'12230 Folly Quarter Rd, Ellicott City, MD', dropoffSiteId:inp.dropoffSiteId,
+      pickupAddress:'45 Maple St, Ellicott City, MD', dropoffSiteId:inp.dropoffSiteId,
       status:'open', hoursCredit:STANDARD_HOURS, distanceMiles:Math.round((1.5+Math.random()*4)*10)/10,
       createdAt:Date.now()
     };
