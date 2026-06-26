@@ -487,7 +487,7 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
       <button class="btn btn-leaf" onclick="closeDashboard(); document.getElementById('demo').scrollIntoView({behavior:'smooth'})">Go to your demo &rarr;</button>
       <button class="btn btn-ghost" onclick="closeDashboard(); logout()">Log out</button>
     </div>
-    <input type="file" id="dashLicenseInput" accept="image/*,.pdf" style="display:none" onchange="dashUploadLicense(this)">
+    <input type="file" id="dashLicenseInput" accept="image/*" style="display:none" onchange="dashUploadLicense(this)">
   </div>
 </div>
 
@@ -518,8 +518,8 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
       <label class="field"><span>Password</span>
         <input class="inp" id="authPassword" type="password" placeholder="At least 6 characters" autocomplete="current-password" required></label>
       <label class="field" id="licenseField" style="display:none"><span>Driver's license</span>
-        <input class="inp" id="authLicense" type="file" accept="image/*,.pdf">
-        <span class="lic-hint">Upload a clear photo or scan of your driver's license — required to drive for Crumbless.</span></label>
+        <input class="inp" id="authLicense" type="file" accept="image/*">
+        <span class="lic-hint">Upload a clear, well-lit photo of the front of your license. We automatically scan it to confirm it's a real driver's license.</span></label>
       <label class="lic-optout" id="noLicenseRow" style="display:none">
         <input type="checkbox" id="authNoLicense" onchange="onNoLicenseToggle()">
         <span>I don't have a driver's license yet — let me just browse for now</span></label>
@@ -708,6 +708,9 @@ async function dashUploadLicense(input){
   try{
     const { data:{ user } } = await supa.auth.getUser();
     if(!user){ openAuth('login'); return; }
+    toast('Scanning your license…');
+    const scan = await scanLicense(file);
+    if(!scan.ok){ toast("That doesn't look like a driver's license — try a clearer photo."); return; }
     toast('Uploading your license…');
     const path=await uploadLicense(user.id, file);
     await supa.auth.updateUser({ data:{ license_path: path } });
@@ -796,6 +799,41 @@ async function uploadLicense(userId, file){
   return path;
 }
 
+/* ---- AI license scan: in-browser OCR (Tesseract.js) confirms the upload is
+   actually a driver's license before we accept it. Free, no backend. ---- */
+let _tessLoad=null;
+function loadTesseract(){
+  if(window.Tesseract) return Promise.resolve();
+  if(_tessLoad) return _tessLoad;
+  _tessLoad=new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+  return _tessLoad;
+}
+const US_STATES=/ALABAMA|ALASKA|ARIZONA|ARKANSAS|CALIFORNIA|COLORADO|CONNECTICUT|DELAWARE|FLORIDA|GEORGIA|HAWAII|IDAHO|ILLINOIS|INDIANA|IOWA|KANSAS|KENTUCKY|LOUISIANA|MAINE|MARYLAND|MASSACHUSETTS|MICHIGAN|MINNESOTA|MISSISSIPPI|MISSOURI|MONTANA|NEBRASKA|NEVADA|HAMPSHIRE|JERSEY|MEXICO|\bNEW YORK\b|CAROLINA|DAKOTA|OHIO|OKLAHOMA|OREGON|PENNSYLVANIA|RHODE ISLAND|TENNESSEE|TEXAS|UTAH|VERMONT|VIRGINIA|WASHINGTON|WISCONSIN|WYOMING/;
+async function scanLicense(file){
+  // OCR only works on images; let PDFs through (can't render in-browser cheaply)
+  if(!file || file.type==='application/pdf' || /\.pdf$/i.test(file.name||'')) return { ok:true, skipped:true };
+  try{
+    await loadTesseract();
+    const { data:{ text } } = await Tesseract.recognize(file, 'eng');
+    const t=(text||'').toUpperCase();
+    const checks=[
+      /DRIVER/.test(t), /LICEN[SC]E/.test(t), /IDENTIFICATION|\bIDENT/.test(t),
+      /DOB|DATE OF BIRTH|BIRTH/.test(t), /EXP\b|EXPIRES|EXPIRATION/.test(t),
+      /\bCLASS\b/.test(t), /\bSEX\b|\bHGT\b|HEIGHT|\bEYES\b|\bWGT\b/.test(t),
+      /\bDL\b|LIC(?:ENSE)?\s*(?:NO|#|NUMBER)|\bID\b/.test(t),
+      US_STATES.test(t), /\b\d{2}[\/\-.]\d{2}[\/\-.]\d{2,4}\b/.test(t)
+    ];
+    const score=checks.filter(Boolean).length;
+    const strong=/DRIVER.{0,4}LICEN[SC]E|OPERATOR\s+LICEN[SC]E|DRIVER.?S LICEN[SC]E/.test(t);
+    return { ok: strong || score>=3, score, strong, text };
+  }catch(e){ console.warn('License OCR failed, allowing through:', e && e.message); return { ok:true, skipped:true, error:true }; }
+}
+function setAuthBusy(busy, label){
+  const btn=document.getElementById('authSubmit'); if(!btn) return;
+  btn.disabled=!!busy;
+  btn.textContent = busy ? (label||'Working…') : (authMode==='signup'?'Create account':'Log in');
+}
+
 function openAuth(mode){ setAuthMode(mode||'login'); document.getElementById('authModal').classList.add('open'); setTimeout(()=>document.getElementById('authEmail').focus(),60); }
 function closeAuth(){ document.getElementById('authModal').classList.remove('open'); authError(''); document.getElementById('authForm').reset(); }
 
@@ -814,6 +852,10 @@ async function submitAuth(e){
   if(authMode==='signup' && acctRole==='driver' && !noLicense){
     if(!licenseFile){ authError('Upload your license, or check the box below to browse without one.'); return false; }
     if(licenseFile.size > 6*1024*1024){ authError('That file is too large — please use an image under 6 MB.'); return false; }
+    authError(''); setAuthBusy(true, 'Scanning your license…');
+    const scan = await scanLicense(licenseFile);
+    setAuthBusy(false);
+    if(!scan.ok){ authError("That doesn't look like a driver's license. Please upload a clear, well-lit photo of the front of your license."); return false; }
   }
 
   if(supaEnabled && supa){
