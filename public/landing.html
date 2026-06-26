@@ -235,6 +235,9 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
 .progress-track{height:8px;border-radius:999px;background:var(--cream-100);overflow:hidden;margin-top:12px}
 .progress-fill{height:100%;border-radius:999px;background:linear-gradient(to right,var(--leaf),var(--sprout));transition:width .9s ease}
 .dash-panel{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px;margin-top:16px}
+.dash-lb-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.dash-lb-grid .dash-panel{margin-top:0}
+@media(max-width:640px){.dash-lb-grid{grid-template-columns:1fr}}
 .lic-thumb{margin-top:12px;border-radius:12px;border:1px solid var(--line);max-width:100%;max-height:150px;display:block;object-fit:cover}
 .map-preview{position:relative;margin-top:14px;height:200px;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
 .map-preview svg{width:100%;height:100%;display:block}
@@ -291,14 +294,14 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
       <div class="floatwrap">
         <div class="float a">
           <p class="eyebrow">Pickup</p>
-          <p class="display" style="font-size:1.1rem;margin-top:8px">Folly Quarter Café</p>
+          <p class="display" style="font-size:1.1rem;margin-top:8px">Maple Street Café</p>
           <p class="small muted">Sandwiches &amp; salads · ~15 meals</p>
           <p class="pill pill-soft" style="margin-top:10px">Prepared · Today 4–6pm</p>
         </div>
         <svg class="thread" viewBox="0 0 400 360" fill="none"><path d="M120 110 C 230 150, 180 230, 300 270" stroke="#6FE08A" stroke-width="2.5" stroke-dasharray="6 7" stroke-linecap="round"/></svg>
         <div class="float b">
           <p class="eyebrow" style="color:var(--sprout)">Delivered</p>
-          <p class="display" style="font-size:1.1rem;margin-top:8px">Howard County Food Bank</p>
+          <p class="display" style="font-size:1.1rem;margin-top:8px">Riverside Food Bank</p>
           <p class="small" style="color:rgba(251,253,248,.7)">Driver: Zakir · on time</p>
           <p class="pill pill-sprout" style="margin-top:10px">+1.5h verified</p>
         </div>
@@ -469,9 +472,15 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
       <p class="muted small" style="margin-top:10px">A live map of nearby drivers &amp; pickups is coming soon.</p>
     </div>
 
-    <div class="dash-panel">
-      <div class="between"><p class="dash-label">Top student drivers this month</p><span class="pill pill-soft">Sample</span></div>
-      <ol class="leaderboard" id="dashLeaderboard"></ol>
+    <div class="dash-lb-grid">
+      <div class="dash-panel">
+        <div class="between"><p class="dash-label">Most hours</p><span class="pill pill-soft">Sample</span></div>
+        <ol class="leaderboard" id="dashLbHours"></ol>
+      </div>
+      <div class="dash-panel">
+        <div class="between"><p class="dash-label">Most deliveries</p><span class="pill pill-soft">Sample</span></div>
+        <ol class="leaderboard" id="dashLbDeliveries"></ol>
+      </div>
     </div>
 
     <div class="dash-actions">
@@ -655,16 +664,21 @@ function paintUser(u){
 const ICON_CAR='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13l2-5.2A2 2 0 0 1 6.9 6.5h10.2A2 2 0 0 1 19 7.8L21 13" stroke-linecap="round"/><path d="M3 13h18v4a1 1 0 0 1-1 1h-1.2a2 2 0 0 1-3.9 0H9.1a2 2 0 0 1-3.9 0H4a1 1 0 0 1-1-1z"/></svg>';
 const ICON_STORE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9.5h16L18.7 5H5.3zM5 9.5V19h14V9.5M9 19v-5h6v5" stroke-linejoin="round"/></svg>';
 const ICON_SHIELD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v6c0 4.2-3.2 7.4-8 9-4.8-1.6-8-4.8-8-9V6z" stroke-linejoin="round"/></svg>';
-const LEADERBOARD=[{name:'Maya R.',hours:42.0},{name:'Zakir',hours:38.5},{name:'Diego M.',hours:31.0},{name:'Aisha K.',hours:27.5},{name:'Liam P.',hours:19.0}];
+const LB_HOURS=[{name:'Maya R.',v:42.0},{name:'Noah B.',v:38.5},{name:'Diego M.',v:31.0},{name:'Aisha K.',v:27.5},{name:'Liam P.',v:19.0}];
+const LB_DELIVERIES=[{name:'Diego M.',v:28},{name:'Maya R.',v:25},{name:'Priya S.',v:22},{name:'Noah B.',v:18},{name:'Liam P.',v:14}];
 
 function isApproved(u){ const r=acctRoleOf(u); if(r==='admin'||r==='business') return true; return r==='driver' && !!(u.user_metadata&&u.user_metadata.license_path); }
 
-function renderLeaderboard(){
-  const ol=document.getElementById('dashLeaderboard'); if(!ol) return;
+function lbHtml(arr, fmt){
   const medals=['🥇','🥈','🥉'];
   const me = CURRENT_USER ? userName(CURRENT_USER).split(' ')[0] : 'You';
-  ol.innerHTML = LEADERBOARD.map((e,i)=>`<li class="lb-row"><span class="lb-rank">${medals[i]||(i+1)}</span><span class="lb-name">${esc(e.name)}</span><span class="lb-hours">${e.hours.toFixed(1)}h</span></li>`).join('')
-    + `<li class="lb-row me"><span class="lb-rank">&mdash;</span><span class="lb-name">${esc(me)} (you)</span><span class="lb-hours">0.0h</span></li>`;
+  return arr.map((e,i)=>`<li class="lb-row"><span class="lb-rank">${medals[i]||(i+1)}</span><span class="lb-name">${esc(e.name)}</span><span class="lb-hours">${fmt(e.v)}</span></li>`).join('')
+    + `<li class="lb-row me"><span class="lb-rank">&mdash;</span><span class="lb-name">${esc(me)} (you)</span><span class="lb-hours">${fmt(0)}</span></li>`;
+}
+function renderLeaderboard(){
+  const h=document.getElementById('dashLbHours'), d=document.getElementById('dashLbDeliveries');
+  if(h) h.innerHTML=lbHtml(LB_HOURS, v=>v.toFixed(1)+'h');
+  if(d) d.innerHTML=lbHtml(LB_DELIVERIES, v=>v+' trips');
 }
 
 async function renderLicenseCard(u, role, lic){
