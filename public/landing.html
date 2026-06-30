@@ -246,14 +246,15 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
 .dash-chevron svg{width:18px;height:18px;display:block}
 .dash-collapse[hidden]{display:none}
 .btn-locked{background:rgba(251,253,248,.10);color:rgba(251,253,248,.65);border:1px solid rgba(251,253,248,.20);cursor:not-allowed}
-.map-preview{position:relative;margin-top:14px;height:200px;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+.map-preview{position:relative;margin-top:14px;height:240px;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
 .map-preview svg{width:100%;height:100%;display:block}
+.map-frame{width:100%;height:100%;border:0;display:block}
 .map-fs-btn{position:absolute;top:10px;right:10px;z-index:2;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.9);color:var(--ink);cursor:pointer;box-shadow:0 1px 2px rgba(10,36,23,.08)}
 .map-fs-btn:hover{background:#fff}
 .map-fs-btn svg{width:18px;height:18px;display:block}
 .map-preview:fullscreen{height:100%;width:100%;border-radius:0;border:none;background:#EAF3EA}
 .map-preview:-webkit-full-screen{height:100%;width:100%;border-radius:0;border:none;background:#EAF3EA}
-.map-preview:fullscreen>svg{width:100%;height:100%}
+.map-preview:fullscreen>svg,.map-preview:fullscreen>.map-frame{width:100%;height:100%}
 .map-you-ring{animation:mapPulse 1.9s ease-in-out infinite}
 @keyframes mapPulse{0%,100%{r:7;opacity:.45}50%{r:17;opacity:0}}
 .leaderboard{list-style:none;margin-top:12px;display:flex;flex-direction:column;gap:8px}
@@ -476,18 +477,9 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
       <div class="dash-collapse" id="dashDriversBody" hidden>
       <div class="map-preview" id="dashMap">
         <button class="map-fs-btn" type="button" onclick="toggleMapFullscreen(this)" aria-label="Toggle fullscreen map" title="Fullscreen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-        <svg viewBox="0 0 600 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-          <rect width="600" height="200" fill="#EAF3EA"/>
-          <path d="M-20 150 Q150 120 330 158 T640 138 V220 H-20Z" fill="#DCEBDC"/>
-          <g stroke="#ffffff" stroke-width="11" stroke-linecap="round"><path d="M60 -10 L150 210"/><path d="M-10 70 L610 115"/><path d="M330 -10 L390 210"/><path d="M-10 165 L610 55"/></g>
-          <g stroke="#cfe0cf" stroke-width="2.5"><path d="M60 -10 L150 210"/><path d="M-10 70 L610 115"/><path d="M330 -10 L390 210"/></g>
-          <g fill="#1E8E4E"><path d="M140 60c-6 0-11 5-11 11 0 8 11 18 11 18s11-10 11-18c0-6-5-11-11-11z"/><path d="M430 95c-6 0-11 5-11 11 0 8 11 18 11 18s11-10 11-18c0-6-5-11-11-11z"/><path d="M250 130c-6 0-11 5-11 11 0 8 11 18 11 18s11-10 11-18c0-6-5-11-11-11z"/></g>
-          <g fill="#ffffff"><circle cx="140" cy="71" r="4"/><circle cx="430" cy="106" r="4"/><circle cx="250" cy="141" r="4"/></g>
-          <circle class="map-you-ring" cx="320" cy="95" r="7" fill="#F2B441"/>
-          <circle cx="320" cy="95" r="7" fill="#F2B441" stroke="#fff" stroke-width="2.5"/>
-        </svg>
+        <iframe class="map-frame" title="Map of nearby drivers &amp; pickups" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" src="https://www.google.com/maps/embed?pb=!1m3!2m1!1sMaryland,+USA!6i8"></iframe>
       </div>
-      <p class="muted small" style="margin-top:10px">A live map of nearby drivers &amp; pickups is coming soon.</p>
+      <p class="muted small" style="margin-top:10px">Live map of the service area — nearby drivers &amp; pickups will appear here soon.</p>
       </div>
     </div>
 
