@@ -239,6 +239,13 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
 .dash-lb-grid .dash-panel{margin-top:0}
 @media(max-width:640px){.dash-lb-grid{grid-template-columns:1fr}}
 .lic-thumb{margin-top:12px;border-radius:12px;border:1px solid var(--line);max-width:100%;max-height:150px;display:block;object-fit:cover}
+.dash-expand{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:none;border:none;padding:0;cursor:pointer;font:inherit;text-align:left}
+.dash-expand .dash-label{margin:0}
+.dash-expand-right{display:inline-flex;align-items:center;gap:10px}
+.dash-chevron{display:inline-flex;flex:none;color:var(--muted)}
+.dash-chevron svg{width:18px;height:18px;display:block}
+.dash-collapse[hidden]{display:none}
+.btn-locked{background:rgba(251,253,248,.10);color:rgba(251,253,248,.65);border:1px solid rgba(251,253,248,.20);cursor:not-allowed}
 .map-preview{position:relative;margin-top:14px;height:200px;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
 .map-preview svg{width:100%;height:100%;display:block}
 .map-you-ring{animation:mapPulse 1.9s ease-in-out infinite}
@@ -456,7 +463,11 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
     </div>
 
     <div class="dash-panel">
-      <div class="between"><p class="dash-label">Drivers near you</p><span class="pill pill-soft">Preview</span></div>
+      <button class="dash-expand" type="button" aria-expanded="false" aria-controls="dashDriversBody" onclick="toggleDrivers(this)">
+        <p class="dash-label">Drivers near you</p>
+        <span class="dash-expand-right"><span class="pill pill-soft">Preview</span><span class="dash-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>
+      </button>
+      <div class="dash-collapse" id="dashDriversBody" hidden>
       <div class="map-preview">
         <svg viewBox="0 0 600 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
           <rect width="600" height="200" fill="#EAF3EA"/>
@@ -470,6 +481,7 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
         </svg>
       </div>
       <p class="muted small" style="margin-top:10px">A live map of nearby drivers &amp; pickups is coming soon.</p>
+      </div>
     </div>
 
     <div class="dash-lb-grid">
@@ -676,6 +688,15 @@ function lbHtml(arr, fmt){
   return empty
     + arr.map((e,i)=>`<li class="lb-row"><span class="lb-rank">${medals[i]||(i+1)}</span><span class="lb-name">${esc(e.name)}</span><span class="lb-hours">${fmt(e.v)}</span></li>`).join('')
     + `<li class="lb-row me"><span class="lb-rank">&mdash;</span><span class="lb-name">${esc(me)} (you)</span><span class="lb-hours">${fmt(0)}</span></li>`;
+}
+function toggleDrivers(btn){
+  const open = btn.getAttribute('aria-expanded')==='true';
+  const next = !open;
+  btn.setAttribute('aria-expanded', String(next));
+  const body=document.getElementById('dashDriversBody');
+  if(body) body.hidden = open;
+  const path = btn.querySelector('.dash-chevron path');
+  if(path) path.setAttribute('d', next ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6');
 }
 function renderLeaderboard(){
   const h=document.getElementById('dashLbHours'), d=document.getElementById('dashLbDeliveries');
@@ -1048,7 +1069,7 @@ function renderStu(){
         <p class="eyebrow" style="color:var(--sprout)">Your verified hours</p>
         <p class="total">${total}<span style="font-size:1.5rem;color:rgba(251,253,248,.7)">h</span></p>
         <p class="small" style="color:rgba(251,253,248,.7);margin-top:4px">Exportable for college, scholarships &amp; NHS.</p>
-        <button class="btn btn-sm mt16" style="width:100%;justify-content:center;background:var(--sprout);color:var(--ink)" onclick="exportHours()">Export summary for school</button>
+        <button class="btn btn-sm mt16 btn-locked" style="width:100%;justify-content:center" onclick="exportHours()" title="Unlocks after your first real verified delivery">🔒 Export locked — no deliveries yet</button>
       </div>
       <div class="card" style="padding:16px;margin-top:16px">
         <p class="small" style="font-weight:700;margin-bottom:8px">History</p>
@@ -1060,7 +1081,12 @@ function renderStu(){
 function doClaim(id){ try{ DB.claimPickup(id); toast(STUDENT.name+' claimed a pickup. The business was notified.'); }catch(e){ toast(e.message);} render(); }
 function doPicked(id){ DB.markPickedUp(id); toast('Picked up — food is in transit.'); render(); }
 function doDelivered(id,h){ DB.markDelivered(id); toast('Delivered! +'+h+' verified hours logged.', true); render(); }
+const EXPORT_UNLOCKED = false; // flip to true once real verified deliveries are tracked per account
 function exportHours(){
+  if(!EXPORT_UNLOCKED){
+    toast("Service-hours export is locked until you complete a real verified delivery.");
+    return;
+  }
   const {total,history}=DB.studentHours();
   const lines = history.map(h=>`  ${new Date(h.date).toLocaleDateString('en-US')}  ·  ${h.food} → ${h.shelter}  ·  +${h.hours}h`);
   const body=[
