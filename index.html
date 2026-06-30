@@ -248,6 +248,12 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
 .btn-locked{background:rgba(251,253,248,.10);color:rgba(251,253,248,.65);border:1px solid rgba(251,253,248,.20);cursor:not-allowed}
 .map-preview{position:relative;margin-top:14px;height:200px;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
 .map-preview svg{width:100%;height:100%;display:block}
+.map-fs-btn{position:absolute;top:10px;right:10px;z-index:2;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.9);color:var(--ink);cursor:pointer;box-shadow:0 1px 2px rgba(10,36,23,.08)}
+.map-fs-btn:hover{background:#fff}
+.map-fs-btn svg{width:18px;height:18px;display:block}
+.map-preview:fullscreen{height:100%;width:100%;border-radius:0;border:none;background:#EAF3EA}
+.map-preview:-webkit-full-screen{height:100%;width:100%;border-radius:0;border:none;background:#EAF3EA}
+.map-preview:fullscreen>svg{width:100%;height:100%}
 .map-you-ring{animation:mapPulse 1.9s ease-in-out infinite}
 @keyframes mapPulse{0%,100%{r:7;opacity:.45}50%{r:17;opacity:0}}
 .leaderboard{list-style:none;margin-top:12px;display:flex;flex-direction:column;gap:8px}
@@ -468,7 +474,8 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
         <span class="dash-expand-right"><span class="pill pill-soft">Preview</span><span class="dash-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>
       </button>
       <div class="dash-collapse" id="dashDriversBody" hidden>
-      <div class="map-preview">
+      <div class="map-preview" id="dashMap">
+        <button class="map-fs-btn" type="button" onclick="toggleMapFullscreen(this)" aria-label="Toggle fullscreen map" title="Fullscreen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <svg viewBox="0 0 600 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
           <rect width="600" height="200" fill="#EAF3EA"/>
           <path d="M-20 150 Q150 120 330 158 T640 138 V220 H-20Z" fill="#DCEBDC"/>
@@ -698,6 +705,24 @@ function toggleDrivers(btn){
   const path = btn.querySelector('.dash-chevron path');
   if(path) path.setAttribute('d', next ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6');
 }
+const ENTER_FS_PATH='M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3';
+const EXIT_FS_PATH='M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3';
+function toggleMapFullscreen(btn){
+  const map=btn.closest('.map-preview'); if(!map) return;
+  const fsEl=document.fullscreenElement||document.webkitFullscreenElement;
+  if(fsEl){ const exit=document.exitFullscreen||document.webkitExitFullscreen; if(exit) exit.call(document); }
+  else { const req=map.requestFullscreen||map.webkitRequestFullscreen; if(req){ const p=req.call(map); if(p&&p.catch) p.catch(()=>toast('Fullscreen isn’t available here.')); } }
+}
+function updateMapFsIcon(){
+  const fsEl=document.fullscreenElement||document.webkitFullscreenElement;
+  document.querySelectorAll('.map-fs-btn').forEach(b=>{
+    const inFs=!!fsEl && b.closest('.map-preview')===fsEl;
+    const p=b.querySelector('path'); if(p) p.setAttribute('d', inFs?EXIT_FS_PATH:ENTER_FS_PATH);
+    b.title=inFs?'Exit fullscreen':'Fullscreen';
+  });
+}
+document.addEventListener('fullscreenchange', updateMapFsIcon);
+document.addEventListener('webkitfullscreenchange', updateMapFsIcon);
 function renderLeaderboard(){
   const h=document.getElementById('dashLbHours'), d=document.getElementById('dashLbDeliveries');
   if(h) h.innerHTML=lbHtml(LB_HOURS, v=>v.toFixed(1)+'h');
