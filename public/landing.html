@@ -814,18 +814,18 @@ function paintUser(u){
 const ICON_CAR='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13l2-5.2A2 2 0 0 1 6.9 6.5h10.2A2 2 0 0 1 19 7.8L21 13" stroke-linecap="round"/><path d="M3 13h18v4a1 1 0 0 1-1 1h-1.2a2 2 0 0 1-3.9 0H9.1a2 2 0 0 1-3.9 0H4a1 1 0 0 1-1-1z"/></svg>';
 const ICON_STORE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9.5h16L18.7 5H5.3zM5 9.5V19h14V9.5M9 19v-5h6v5" stroke-linejoin="round"/></svg>';
 const ICON_SHIELD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v6c0 4.2-3.2 7.4-8 9-4.8-1.6-8-4.8-8-9V6z" stroke-linejoin="round"/></svg>';
-const LB_HOURS=[];
-const LB_DELIVERIES=[];
+/* first name + last initial, for leaderboard privacy: "Maya Rodriguez" -> "Maya R." */
+function lbName(n){ const parts=String(n||'').trim().split(/\s+/); if(!parts[0]) return 'Student'; return parts[0]+(parts[1]?(' '+parts[1][0].toUpperCase()+'.'):''); }
 
 function isApproved(u){ const r=acctRoleOf(u); if(r==='admin'||r==='business') return true; return r==='driver' && !!(u.user_metadata&&u.user_metadata.license_path); }
 
-function lbHtml(arr, fmt){
+function lbHtml(arr, fmt, myVal){
   const medals=['🥇','🥈','🥉'];
   const me = CURRENT_USER ? userName(CURRENT_USER).split(' ')[0] : 'You';
   const empty = arr.length ? '' : `<li class="lb-row lb-empty"><span class="muted small">No rankings yet — be the first.</span></li>`;
   return empty
-    + arr.map((e,i)=>`<li class="lb-row"><span class="lb-rank">${medals[i]||(i+1)}</span><span class="lb-name">${esc(e.name)}</span><span class="lb-hours">${fmt(e.v)}</span></li>`).join('')
-    + `<li class="lb-row me"><span class="lb-rank">&mdash;</span><span class="lb-name">${esc(me)} (you)</span><span class="lb-hours">${fmt(0)}</span></li>`;
+    + arr.map((e,i)=>`<li class="lb-row${e.mine?' me':''}"><span class="lb-rank">${medals[i]||(i+1)}</span><span class="lb-name">${esc(e.name)}</span><span class="lb-hours">${fmt(e.v)}</span></li>`).join('')
+    + `<li class="lb-row me"><span class="lb-rank">&mdash;</span><span class="lb-name">${esc(me)} (you)</span><span class="lb-hours">${fmt(myVal||0)}</span></li>`;
 }
 function toggleDrivers(btn){
   const open = btn.getAttribute('aria-expanded')==='true';
@@ -854,10 +854,22 @@ function updateMapFsIcon(){
 }
 document.addEventListener('fullscreenchange', updateMapFsIcon);
 document.addEventListener('webkitfullscreenchange', updateMapFsIcon);
-function renderLeaderboard(){
+async function renderLeaderboard(){
   const h=document.getElementById('dashLbHours'), d=document.getElementById('dashLbDeliveries');
-  if(h) h.innerHTML=lbHtml(LB_HOURS, v=>v.toFixed(1)+'h');
-  if(d) d.innerHTML=lbHtml(LB_DELIVERIES, v=>v+' trips');
+  let hoursArr=[], delivArr=[], myHours=0, myDeliv=0;
+  if(live()){
+    try{
+      const { data } = await supa.rpc('leaderboard');
+      const rows=(data||[]).map(r=>({ id:r.student_id, name:lbName(r.name), hours:Number(r.hours), deliveries:Number(r.deliveries) }));
+      const myId=CURRENT_USER.id;
+      hoursArr = rows.slice().sort((a,b)=>b.hours-a.hours).slice(0,5).map(r=>({name:r.name, v:r.hours, mine:r.id===myId}));
+      delivArr = rows.slice().sort((a,b)=>b.deliveries-a.deliveries).slice(0,5).map(r=>({name:r.name, v:r.deliveries, mine:r.id===myId}));
+      const mine = rows.find(r=>r.id===myId);
+      if(mine){ myHours=mine.hours; myDeliv=mine.deliveries; }
+    }catch(e){}
+  }
+  if(h) h.innerHTML=lbHtml(hoursArr, v=>v.toFixed(1)+'h', myHours);
+  if(d) d.innerHTML=lbHtml(delivArr, v=>v+' trips', myDeliv);
 }
 
 async function renderLicenseCard(u, role, lic){
@@ -923,7 +935,7 @@ async function openDashboard(){
   document.getElementById('dashHoursNote').textContent = hrs.toFixed(0)+' of '+goal+' hours to your next badge';
   document.getElementById('dashSince').textContent = u.created_at ? new Date(u.created_at).toLocaleDateString('en-US',{month:'long',year:'numeric'}) : 'Today';
   renderLicenseCard(u, role, lic);
-  renderLeaderboard();
+  await renderLeaderboard();
   document.getElementById('dashOverlay').classList.add('open');
   window.scrollTo(0,0);
 }

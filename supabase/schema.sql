@@ -148,6 +148,27 @@ create or replace view public.hours_entries as
   where p.status = 'delivered';
 
 -- ----------------------------------------------------------------------------
+-- Leaderboard: public aggregate of delivered hours/deliveries per student.
+-- SECURITY DEFINER so it can total across users despite per-row RLS; it only
+-- exposes a display name + counts (no email or other PII).
+-- ----------------------------------------------------------------------------
+create or replace function public.leaderboard()
+returns table(student_id uuid, name text, hours numeric, deliveries bigint)
+language sql security definer set search_path = public stable as $$
+  select p.student_id,
+         coalesce(nullif(pr.name,''), 'Student') as name,
+         sum(p.hours_credit)::numeric as hours,
+         count(*)::bigint as deliveries
+  from public.pickups p
+  join public.profiles pr on pr.id = p.student_id
+  where p.status = 'delivered' and p.student_id is not null
+  group by p.student_id, pr.name
+  order by hours desc
+  limit 100;
+$$;
+grant execute on function public.leaderboard() to anon, authenticated;
+
+-- ----------------------------------------------------------------------------
 -- Row Level Security
 -- Starting point — review against your real policy needs before going live.
 -- ----------------------------------------------------------------------------
