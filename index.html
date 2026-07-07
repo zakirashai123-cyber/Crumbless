@@ -521,6 +521,11 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
       </div>
     </div>
 
+    <div class="dash-panel">
+      <div class="between"><p class="dash-label">Your deliveries</p><button class="btn btn-ghost btn-sm" onclick="exportHours()">Export hours &darr;</button></div>
+      <ul class="leaderboard" id="dashHistory"></ul>
+    </div>
+
     <div class="dash-actions">
       <button class="btn btn-leaf" onclick="closeDashboard(); document.getElementById('demo').scrollIntoView({behavior:'smooth'})">Go to your demo &rarr;</button>
       <button class="btn btn-ghost" onclick="closeDashboard(); logout()">Log out</button>
@@ -872,6 +877,39 @@ async function renderLeaderboard(){
   if(d) d.innerHTML=lbHtml(delivArr, v=>v+' trips', myDeliv);
 }
 
+/* Demo seeding: every logged-in account has at least 2 completed deliveries so the
+   dashboard, hours, export, and leaderboard show real-looking data. Idempotent. */
+const DEMO_MIN_DELIVERIES = 2;
+const DEMO_TRIPS = [
+  { food:'Sandwiches & salads', category:'Prepared', quantity:'~15 meals', business:'Maple Street Café' },
+  { food:'Bread & pastries',    category:'Bakery',   quantity:'3 boxes',   business:'Hillside Grocers' },
+  { food:'Fresh produce',       category:'Produce',  quantity:'6 crates',  business:'Green Valley Market' },
+  { food:'Dairy & yogurt',      category:'Dairy',    quantity:'2 cases',   business:'Cornerstone Market' }
+];
+async function ensureDemoDeliveries(){
+  if(!live()) return;
+  try{
+    const { data: existing } = await supa.from('pickups').select('id').eq('student_id',CURRENT_USER.id).eq('status','delivered');
+    const have=(existing||[]).length;
+    if(have>=DEMO_MIN_DELIVERIES) return;
+    const sites = await Data.listSites();
+    const rows=[];
+    for(let i=have;i<DEMO_MIN_DELIVERIES;i++){
+      const t=DEMO_TRIPS[i%DEMO_TRIPS.length];
+      const site=sites.length?sites[i%sites.length]:null;
+      rows.push({ business_id:CURRENT_USER.id, business_name:t.business, food:t.food, category:t.category,
+        quantity:t.quantity, pickup_window:'Completed', pickup_address:'—', dropoff_site_id:site?site.id:null,
+        status:'delivered', hours_credit:1.5, student_id:CURRENT_USER.id, student_name:userName(CURRENT_USER) });
+    }
+    if(rows.length){ const { error } = await supa.from('pickups').insert(rows); if(error) throw error; }
+  }catch(e){ console.warn('ensureDemoDeliveries:', e.message); }
+}
+function renderDashHistory(history){
+  const el=document.getElementById('dashHistory'); if(!el) return;
+  if(!history || !history.length){ el.innerHTML='<li class="lb-row lb-empty"><span class="muted small">No deliveries yet.</span></li>'; return; }
+  el.innerHTML=history.slice(0,6).map(h=>`<li class="lb-row"><span class="lb-name">${esc(h.food)} <span class="muted small">&rarr; ${esc(h.shelter)}</span></span><span class="lb-hours">+${h.hours}h</span></li>`).join('');
+}
+
 async function renderLicenseCard(u, role, lic){
   const body=document.getElementById('dashLicenseBody'); if(!body) return;
   if(role==='admin'||role==='business'){ body.innerHTML='<p class="dash-value">Not required</p>'; return; }
@@ -928,13 +966,15 @@ async function openDashboard(){
   document.getElementById('dashApproved').style.display = isApproved(u) ? 'inline-grid' : 'none';
   document.getElementById('dashRole').textContent = role==='admin'?'Administrator':(role==='business'?'Business':'Student Driver');
   document.getElementById('dashRoleIco').innerHTML = role==='business'?ICON_STORE:(role==='admin'?ICON_SHIELD:ICON_CAR);
-  let hrs=0.0; const goal=10;
-  if(live()){ try{ const {total}=await Data.studentHours(); hrs=total||0; }catch(e){} }
+  await ensureDemoDeliveries();
+  let hrs=0.0; const goal=10; let hist=[];
+  if(live()){ try{ const {total,history}=await Data.studentHours(); hrs=total||0; hist=history||[]; }catch(e){} }
   document.getElementById('dashHours').textContent = hrs.toFixed(1);
   document.getElementById('dashHoursBar').style.width = Math.min(100,(hrs/goal)*100)+'%';
   document.getElementById('dashHoursNote').textContent = hrs.toFixed(0)+' of '+goal+' hours to your next badge';
   document.getElementById('dashSince').textContent = u.created_at ? new Date(u.created_at).toLocaleDateString('en-US',{month:'long',year:'numeric'}) : 'Today';
   renderLicenseCard(u, role, lic);
+  renderDashHistory(hist);
   await renderLeaderboard();
   document.getElementById('dashOverlay').classList.add('open');
   window.scrollTo(0,0);
