@@ -2,8 +2,11 @@
 -- Run this once in your Supabase project: SQL Editor → New query → paste → Run.
 -- It matches the DB interface in lib/data/types.ts.
 --
--- Safe to re-run: every object uses "if not exists" / "or replace" and policies
--- are dropped before being re-created.
+-- Safe to re-run: every object uses "if not exists" / "or replace", policies are
+-- dropped before being re-created, and inserts are guarded so they won't duplicate.
+--
+-- Note: your `licenses` Storage bucket and its policies are already set up, so this
+-- file does not touch Storage.
 
 -- ----------------------------------------------------------------------------
 -- Enums
@@ -81,6 +84,53 @@ create index if not exists pickups_business_idx  on public.pickups(business_id);
 create index if not exists pickups_student_idx   on public.pickups(student_id);
 
 -- ----------------------------------------------------------------------------
+-- Helper: map the app's role string to the user_role enum.
+-- The live site uses 'driver' for students; everything unknown becomes 'student'.
+-- ----------------------------------------------------------------------------
+create or replace function public.role_from_text(r text)
+returns user_role language sql immutable as $$
+  select case lower(coalesce(r,''))
+    when 'business' then 'business'::user_role
+    when 'admin'    then 'admin'::user_role
+    else 'student'::user_role
+  end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- Auto-create a profile row whenever a new auth user signs up.
+-- ----------------------------------------------------------------------------
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.profiles (id, role, name, email, status)
+  values (
+    new.id,
+    public.role_from_text(new.raw_user_meta_data->>'role'),
+    coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', ''),
+    coalesce(new.email, ''),
+    'pending'
+  )
+  on conflict (id) do nothing;
+  return new;
+end $$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- Backfill: create profile rows for any users who signed up before this ran.
+insert into public.profiles (id, role, name, email, status)
+select
+  u.id,
+  public.role_from_text(u.raw_user_meta_data->>'role'),
+  coalesce(u.raw_user_meta_data->>'full_name', u.raw_user_meta_data->>'name', ''),
+  coalesce(u.email, ''),
+  'pending'
+from auth.users u
+on conflict (id) do nothing;
+
+-- ----------------------------------------------------------------------------
 -- View: completed deliveries as service-hour entries (drives getStudentHours).
 -- ----------------------------------------------------------------------------
 create or replace view public.hours_entries as
@@ -140,22 +190,22 @@ create policy pickups_business_insert on public.pickups
   for insert with check (business_id = auth.uid());
 
 -- A business can update/cancel its own pickups; a student can update a pickup
--- they have claimed (to mark picked-up / delivered).
+-- they have claimed, and any signed-in user can claim an open one.
 drop policy if exists pickups_update on public.pickups;
 create policy pickups_update on public.pickups
   for update using (
     business_id = auth.uid()
     or student_id = auth.uid()
-    or (status = 'open' and auth.role() = 'authenticated') -- allow claiming an open pickup
+    or (status = 'open' and auth.role() = 'authenticated')
   );
 
 -- ----------------------------------------------------------------------------
--- Optional seed: a couple of drop-off sites so the demo has somewhere to deliver.
+-- Optional seed: a couple of drop-off sites so the loop has somewhere to deliver.
 -- Comment out if you don't want sample data.
 -- ----------------------------------------------------------------------------
 insert into public.dropoff_sites (name, city, address, active)
 select * from (values
-  ('Maryland Food Bank',        'Baltimore',   '2200 Halethorpe Farms Rd', true),
-  ('Community Crisis Center',   'Rockville',   '600 E Gude Dr',            true)
+  ('Maryland Food Bank',      'Baltimore', '2200 Halethorpe Farms Rd', true),
+  ('Community Crisis Center', 'Rockville', '600 E Gude Dr',            true)
 ) as v(name, city, address, active)
 where not exists (select 1 from public.dropoff_sites);

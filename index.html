@@ -469,7 +469,10 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
           <p class="muted small" id="dashEmail"></p>
         </div>
       </div>
-      <button class="btn btn-ghost btn-sm" onclick="closeDashboard()">&larr; Back to site</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn btn-ghost btn-sm" onclick="openProfile()">Edit profile</button>
+        <button class="btn btn-ghost btn-sm" onclick="closeDashboard()">&larr; Back to site</button>
+      </div>
     </div>
 
     <div class="dash-grid">
@@ -565,6 +568,35 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
     <p class="auth-switch" id="authSwitch" style="display:none">Already have an account? <button type="button" onclick="setAuthMode('login')">Log in</button></p>
 
     <p class="auth-note">Crumbless will never share your details. By continuing you agree to our <a href="#" onclick="openLegal('terms');return false" style="color:var(--leaf-600);font-weight:600">Terms</a> &amp; <a href="#" onclick="openLegal('privacy');return false" style="color:var(--leaf-600);font-weight:600">Privacy Policy</a>.</p>
+  </div>
+</div>
+
+<!-- PROFILE MODAL -->
+<div class="modal-overlay" id="profileModal" onclick="if(event.target===this) closeProfile()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+    <div class="modal-head">
+      <div>
+        <h2 id="profileTitle">Edit profile</h2>
+        <p class="msub">Update your details — your email stays the same.</p>
+      </div>
+      <button class="modal-close" onclick="closeProfile()" aria-label="Close">&times;</button>
+    </div>
+    <div class="auth-error" id="profileError"></div>
+    <form class="auth-form" id="profileForm" onsubmit="return saveProfile(event)">
+      <label class="field"><span>Full name</span>
+        <input class="inp" id="pfName" autocomplete="name" required></label>
+      <label class="field" id="pfBusinessField" style="display:none"><span>Business name</span>
+        <input class="inp" id="pfBusiness" autocomplete="organization" placeholder="Your business"></label>
+      <label class="field" id="pfSchoolField"><span>School</span>
+        <input class="inp" id="pfSchool" placeholder="Your school"></label>
+      <label class="field" id="pfGradeField"><span>Grade</span>
+        <input class="inp" id="pfGrade" placeholder="e.g. 11th"></label>
+      <label class="field"><span>Phone <span class="muted" style="font-weight:400">(optional)</span></span>
+        <input class="inp" id="pfPhone" type="tel" autocomplete="tel" placeholder="(555) 555-5555"></label>
+      <label class="field"><span>New password <span class="muted" style="font-weight:400">(leave blank to keep current)</span></span>
+        <input class="inp" id="pfPassword" type="password" autocomplete="new-password" placeholder="At least 6 characters"></label>
+      <button class="btn btn-leaf btn-block" type="submit" id="pfSubmit">Save changes</button>
+    </form>
   </div>
 </div>
 
@@ -690,7 +722,7 @@ function initAuth(){
 function loadAccounts(){ try{ return JSON.parse(localStorage.getItem(AUTH_KEY))||{}; }catch(e){ return {}; } }
 function saveAccounts(a){ localStorage.setItem(AUTH_KEY, JSON.stringify(a)); }
 function hashPw(s){ let h=5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h)^s.charCodeAt(i); } return (h>>>0).toString(36); }
-function demoUser(){ const e=localStorage.getItem(SESS_KEY); if(!e) return null; const a=loadAccounts(); return a[e]?{email:e, name:a[e].name, user_metadata:{role:a[e].role}}:null; }
+function demoUser(){ const e=localStorage.getItem(SESS_KEY); if(!e) return null; const a=loadAccounts(); const r=a[e]; return r?{email:e, name:r.name, user_metadata:{role:r.role, full_name:r.name, school:r.school, grade:r.grade, phone:r.phone, business_name:r.business_name, license_path:r.license_path}}:null; }
 
 /* ---- nav rendering (handles Supabase or demo user objects) ---- */
 function userName(u){ if(!u) return ''; const m=u.user_metadata||{}; return u.name || m.full_name || m.name || (u.email||'').split('@')[0]; }
@@ -826,6 +858,59 @@ async function openDashboard(){
   window.scrollTo(0,0);
 }
 function closeDashboard(){ document.getElementById('dashOverlay').classList.remove('open'); }
+
+/* ---- edit profile ---- */
+function profileError(msg){ const e=document.getElementById('profileError'); e.textContent=msg; e.classList.toggle('show', !!msg); }
+function openProfile(){
+  const u = CURRENT_USER;
+  if(!u){ openAuth('login'); return; }
+  const m = u.user_metadata||{}, role = acctRoleOf(u);
+  document.getElementById('pfName').value = userName(u)||'';
+  document.getElementById('pfBusiness').value = m.business_name||'';
+  document.getElementById('pfSchool').value = m.school||'';
+  document.getElementById('pfGrade').value = m.grade||'';
+  document.getElementById('pfPhone').value = m.phone||'';
+  document.getElementById('pfPassword').value = '';
+  document.getElementById('pfBusinessField').style.display = role==='business'?'block':'none';
+  document.getElementById('pfSchoolField').style.display = role==='driver'?'block':'none';
+  document.getElementById('pfGradeField').style.display = role==='driver'?'block':'none';
+  profileError('');
+  document.getElementById('profileModal').classList.add('open');
+  setTimeout(()=>document.getElementById('pfName').focus(),60);
+}
+function closeProfile(){ document.getElementById('profileModal').classList.remove('open'); }
+async function saveProfile(e){
+  e.preventDefault();
+  const u = CURRENT_USER; if(!u){ openAuth('login'); return false; }
+  const name=document.getElementById('pfName').value.trim();
+  const business=document.getElementById('pfBusiness').value.trim();
+  const school=document.getElementById('pfSchool').value.trim();
+  const grade=document.getElementById('pfGrade').value.trim();
+  const phone=document.getElementById('pfPhone').value.trim();
+  const pw=document.getElementById('pfPassword').value;
+  if(!name){ profileError('Please enter your name.'); return false; }
+  if(pw && pw.length<6){ profileError('New password must be at least 6 characters.'); return false; }
+  const data={ full_name:name, business_name:business, school, grade, phone };
+  const btn=document.getElementById('pfSubmit'), orig=btn.textContent; btn.disabled=true; btn.textContent='Saving…';
+  try{
+    if(supaEnabled && supa){
+      const payload={ data }; if(pw) payload.password=pw;
+      const { error } = await supa.auth.updateUser(payload);
+      if(error) throw error;
+      const { data:gu } = await supa.auth.getUser(); if(gu&&gu.user) CURRENT_USER=gu.user;
+    } else {
+      const email=u.email, a=loadAccounts();
+      if(a[email]){ a[email].name=name; a[email].business_name=business; a[email].school=school; a[email].grade=grade; a[email].phone=phone; if(pw) a[email].pw=hashPw(pw); saveAccounts(a); }
+      CURRENT_USER = demoUser();
+    }
+    paintUser(CURRENT_USER);
+    toast('Profile updated ✓', true);
+    closeProfile();
+    openDashboard();
+  }catch(err){ profileError((err&&err.message)||'Could not save changes.'); }
+  finally{ btn.disabled=false; btn.textContent=orig; }
+  return false;
+}
 
 async function logout(){
   if(supaEnabled && supa){ await supa.auth.signOut(); }
@@ -1282,7 +1367,7 @@ window.addEventListener('scroll',onScroll,{passive:true});
 window.addEventListener('resize',onScroll);
 
 render(); onScroll(); initAuth();
-document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeAuth(); closeDashboard(); closeLegal(); } });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeAuth(); closeDashboard(); closeLegal(); closeProfile(); } });
 </script>
 </body>
 </html>
