@@ -407,7 +407,7 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
       <div class="reveal">
         <p class="eyebrow">Live demo</p>
         <h2 class="display h2" style="margin-top:12px">Try the whole loop, right here.</h2>
-        <p class="sub">Post food as a business, switch to the student side, claim the route, and deliver it. The hours log themselves. No sign-up — it runs in your browser.</p>
+        <p class="sub">Post food as a business, switch to the student side, claim the route, and deliver it. The hours log themselves. <span id="demoModeNote">Logged out, this is a local preview — <a href="#" onclick="openAuth('login');return false" style="color:var(--leaf-600);font-weight:700">log in</a> and your posts, claims, and verified hours save to your account.</span></p>
       </div>
       <div class="appshell">
         <div class="role-head">
@@ -942,11 +942,15 @@ async function dashUploadLicense(input){
     if(!scan.ok){ toast("That doesn't look like a driver's license — try a clearer photo."); return; }
     toast('Uploading your license…');
     const path=await uploadLicense(user.id, file);
-    await supa.auth.updateUser({ data:{ license_path: path } });
+    const { error:upErr } = await supa.auth.updateUser({ data:{ license_path: path } });
+    if(upErr) throw upErr;
     const { data } = await supa.auth.getUser(); CURRENT_USER = (data&&data.user)||CURRENT_USER;
+    if(!(CURRENT_USER.user_metadata&&CURRENT_USER.user_metadata.license_path)){
+      throw new Error('Uploaded to storage, but your profile did not update — please try again.');
+    }
     toast('License uploaded ✓', true);
     openDashboard(); applyDemoModeForUser();
-  }catch(e){ console.warn('dashUploadLicense:', e.message); toast('Upload failed — please try again.'); }
+  }catch(e){ console.error('dashUploadLicense failed:', e); toast('Upload failed: '+((e&&e.message)||'unknown error')); }
 }
 
 function celebrate(){
@@ -1345,6 +1349,12 @@ function canDrive(){ const u=CURRENT_USER; if(!u) return false; const r=acctRole
 function applyDemoModeForUser(){
   const head=document.querySelector('.role-head');
   const r=acctRoleOf(CURRENT_USER);
+  const note=document.getElementById('demoModeNote');
+  if(note){
+    note.innerHTML = CURRENT_USER
+      ? 'You’re logged in — your posts, claims, and verified hours are saved to your account.'
+      : 'Logged out, this is a local preview — <a href="#" onclick="openAuth(\'login\');return false" style="color:var(--leaf-600);font-weight:700">log in</a> and your posts, claims, and verified hours save to your account.';
+  }
   if(!CURRENT_USER || r==='admin'){ if(head) head.style.display=''; render(); }
   else if(r==='business'){ if(head) head.style.display='none'; setRole('business'); }
   else { if(head) head.style.display='none'; setRole('student'); }
