@@ -636,7 +636,9 @@ const store = {
   claims:[],
   seq:100
 };
-const siteName = id => (store.sites.find(s=>s.id===id)||{}).name || 'Shelter';
+let SITES = store.sites.slice();
+let SITE_MAP = Object.fromEntries(SITES.map(s=>[s.id,s.name]));
+const siteName = id => SITE_MAP[id] || 'Shelter';
 const DEMO_BIZ = 'biz-folly';
 
 const DB = {
@@ -648,7 +650,7 @@ const DB = {
     const p = {
       id:'pk-'+(++store.seq), businessId:DEMO_BIZ, businessName:'Maple Street Café',
       food:inp.food, category:inp.category, quantity:inp.quantity, pickupWindow:inp.pickupWindow,
-      pickupAddress:'45 Maple St, Ellicott City, MD', dropoffSiteId:inp.dropoffSiteId,
+      pickupAddress:inp.pickupAddress||'45 Maple St, Ellicott City, MD', dropoffSiteId:inp.dropoffSiteId,
       status:'open', hoursCredit:STANDARD_HOURS, distanceMiles:Math.round((1.5+Math.random()*4)*10)/10,
       createdAt:Date.now()
     };
@@ -673,6 +675,73 @@ const DB = {
       return {id:c.id, date:c.deliveredAt, food:p.food||'Delivery', shelter:siteName(p.dropoffSiteId), hours:c.hoursCredited}; })
       .sort((a,b)=>b.date-a.date);
     return {total:Math.round(history.reduce((s,h)=>s+h.hours,0)*100)/100, history};
+  }
+};
+
+/* =========================================================================
+   Data layer: use Supabase when a real user is logged in; otherwise fall back
+   to the in-memory demo above so the marketing demo works for anonymous visitors.
+   ========================================================================= */
+function live(){ return !!(supaEnabled && supa && CURRENT_USER); }
+function businessNameOf(u){ const m=(u&&u.user_metadata)||{}; return m.business_name || userName(u) || 'A local business'; }
+function fromRow(r){ return {
+  id:r.id, businessId:r.business_id, businessName:r.business_name, food:r.food, category:r.category,
+  quantity:r.quantity, pickupWindow:r.pickup_window, pickupAddress:r.pickup_address, dropoffSiteId:r.dropoff_site_id,
+  status:r.status, hoursCredit:Number(r.hours_credit), createdAt:r.created_at?new Date(r.created_at).getTime():Date.now(),
+  studentId:r.student_id, studentName:r.student_name, distanceMiles:r.distance_miles
+}; }
+
+const Data = {
+  async listSites(){
+    if(!live()) return DB.listSites();
+    const { data } = await supa.from('dropoff_sites').select('id,name,city,address').eq('active',true).order('name');
+    return data||[];
+  },
+  async listOpen(){
+    if(!live()) return DB.listOpen();
+    const { data } = await supa.from('pickups').select('*').eq('status','open').order('created_at',{ascending:false});
+    return (data||[]).map(fromRow);
+  },
+  async listForBusiness(){
+    if(!live()) return DB.listForBusiness(DEMO_BIZ);
+    const { data } = await supa.from('pickups').select('*').eq('business_id',CURRENT_USER.id).order('created_at',{ascending:false});
+    return (data||[]).map(fromRow);
+  },
+  async listMyActive(){
+    if(!live()) return DB.listMyActive();
+    const { data } = await supa.from('pickups').select('*').eq('student_id',CURRENT_USER.id).in('status',['claimed','in_transit']).order('created_at',{ascending:false});
+    return (data||[]).map(fromRow);
+  },
+  async createPickup(inp){
+    if(!live()) return DB.createPickup(inp);
+    const row={ business_id:CURRENT_USER.id, business_name:businessNameOf(CURRENT_USER), food:inp.food, category:inp.category,
+      quantity:inp.quantity, pickup_window:inp.pickupWindow, pickup_address:inp.pickupAddress||'', dropoff_site_id:inp.dropoffSiteId||null,
+      status:'open', hours_credit:STANDARD_HOURS };
+    const { error } = await supa.from('pickups').insert(row); if(error) throw new Error(error.message);
+  },
+  async cancelPickup(id){
+    if(!live()) return DB.cancelPickup(id);
+    const { error } = await supa.from('pickups').update({status:'cancelled'}).eq('id',id).eq('status','open'); if(error) throw new Error(error.message);
+  },
+  async claimPickup(id){
+    if(!live()) return DB.claimPickup(id);
+    const { data, error } = await supa.from('pickups').update({status:'claimed', student_id:CURRENT_USER.id, student_name:userName(CURRENT_USER)}).eq('id',id).eq('status','open').select();
+    if(error) throw new Error(error.message);
+    if(!data || !data.length) throw new Error('Sorry — this route was just claimed by someone else.');
+  },
+  async markPickedUp(id){
+    if(!live()) return DB.markPickedUp(id);
+    const { error } = await supa.from('pickups').update({status:'in_transit'}).eq('id',id).eq('status','claimed'); if(error) throw new Error(error.message);
+  },
+  async markDelivered(id){
+    if(!live()) return DB.markDelivered(id);
+    const { error } = await supa.from('pickups').update({status:'delivered'}).eq('id',id).eq('status','in_transit'); if(error) throw new Error(error.message);
+  },
+  async studentHours(){
+    if(!live()) return DB.studentHours();
+    const { data } = await supa.from('hours_entries').select('*').eq('student_id',CURRENT_USER.id).order('delivered_at',{ascending:false});
+    const history=(data||[]).map(h=>({ id:h.id, date:h.delivered_at, food:h.food, shelter:h.dropoff_site_name, hours:Number(h.hours) }));
+    return { total:Math.round(history.reduce((s,h)=>s+h.hours,0)*100)/100, history };
   }
 };
 
@@ -847,7 +916,8 @@ async function openDashboard(){
   document.getElementById('dashApproved').style.display = isApproved(u) ? 'inline-grid' : 'none';
   document.getElementById('dashRole').textContent = role==='admin'?'Administrator':(role==='business'?'Business':'Student Driver');
   document.getElementById('dashRoleIco').innerHTML = role==='business'?ICON_STORE:(role==='admin'?ICON_SHIELD:ICON_CAR);
-  const hrs=0.0, goal=10;
+  let hrs=0.0; const goal=10;
+  if(live()){ try{ const {total}=await Data.studentHours(); hrs=total||0; }catch(e){} }
   document.getElementById('dashHours').textContent = hrs.toFixed(1);
   document.getElementById('dashHoursBar').style.width = Math.min(100,(hrs/goal)*100)+'%';
   document.getElementById('dashHoursNote').textContent = hrs.toFixed(0)+' of '+goal+' hours to your next badge';
@@ -1158,9 +1228,9 @@ function gotoDemo(r){ setRole(r); document.getElementById('demo').scrollIntoView
 /* ---------- business dashboard ---------- */
 const CATS=['Prepared','Produce','Bakery','Dairy','Packaged'];
 let formCat='Prepared';
-function renderBiz(){
-  const sites=DB.listSites();
-  const pickups=DB.listForBusiness(DEMO_BIZ);
+async function renderBiz(){
+  const sites=SITES;
+  const pickups=await Data.listForBusiness();
   const opts=sites.map(s=>`<option value="${s.id}">${esc(s.name)} — ${esc(s.city)}</option>`).join('');
   const chips=CATS.map(c=>`<button type="button" class="chip ${c===formCat?'active':''}" onclick="formCat='${c}';renderBiz()">${c}</button>`).join('');
   const list = pickups.length? pickups.map(p=>`
@@ -1186,6 +1256,7 @@ function renderBiz(){
           <label class="field"><span>Approx. quantity</span><input class="inp" id="fQty" placeholder="~15 meals" required></label>
           <label class="field"><span>Pickup window</span><input class="inp" id="fWin" placeholder="Today 4–6pm" required></label>
         </div>
+        <label class="field"><span>Pickup address</span><input class="inp" id="fAddr" placeholder="Street, city, MD" required></label>
         <label class="field"><span>Send it to</span><select class="inp" id="fSite">${opts}</select></label>
         <button class="btn btn-leaf" type="submit" style="width:100%;justify-content:center">Post surplus food →</button>
         <p class="legalnote">Food donations are generally protected under the federal <strong style="color:var(--text)">Good Samaritan Food Donation Act</strong>. This isn't legal advice — confirm specifics with a lawyer.</p>
@@ -1197,18 +1268,19 @@ function renderBiz(){
     </div>
   </div>`;
 }
-function doPost(e){
+async function doPost(e){
   e.preventDefault();
   const food=document.getElementById('fFood').value.trim();
   const quantity=document.getElementById('fQty').value.trim();
   const pickupWindow=document.getElementById('fWin').value.trim();
+  const pickupAddress=(document.getElementById('fAddr')||{}).value?document.getElementById('fAddr').value.trim():'';
   const dropoffSiteId=document.getElementById('fSite').value;
   if(!food||!quantity||!pickupWindow) return false;
-  DB.createPickup({food,category:formCat,quantity,pickupWindow,dropoffSiteId});
-  toast('Posted — students can claim it now.');
-  formCat='Prepared'; render(); return false;
+  try{ await Data.createPickup({food,category:formCat,quantity,pickupWindow,pickupAddress,dropoffSiteId}); toast('Posted — students can claim it now.'); }
+  catch(err){ toast(err.message||'Could not post — please try again.'); }
+  formCat='Prepared'; await render(); return false;
 }
-function doCancel(id){ DB.cancelPickup(id); toast('Pickup cancelled.'); render(); }
+async function doCancel(id){ try{ await Data.cancelPickup(id); toast('Pickup cancelled.'); }catch(e){ toast(e.message);} await render(); }
 
 /* ---------- student dashboard ---------- */
 /* a yellow padlock that dangles; only verified drivers (license on file) can claim */
@@ -1226,10 +1298,10 @@ function applyDemoModeForUser(){
   else { if(head) head.style.display='none'; setRole('student'); }
 }
 
-function renderStu(){
-  const open=DB.listOpen();
-  const active=DB.listMyActive();
-  const {total,history}=DB.studentHours();
+async function renderStu(){
+  const open=await Data.listOpen();
+  const active=await Data.listMyActive();
+  const {total,history}=await Data.studentHours();
 
   const activeHtml = active.length? `<div><h3 class="display" style="font-size:1.25rem;margin-bottom:12px">Your active pickup</h3><ul class="list">`+active.map(p=>`
     <li class="card row-item" style="border-color:rgba(30,142,78,.3)">
@@ -1273,7 +1345,9 @@ function renderStu(){
         <p class="eyebrow" style="color:var(--sprout)">Your verified hours</p>
         <p class="total">${total}<span style="font-size:1.5rem;color:rgba(251,253,248,.7)">h</span></p>
         <p class="small" style="color:rgba(251,253,248,.7);margin-top:4px">Exportable for college, scholarships &amp; NHS.</p>
-        <button class="btn btn-sm mt16 btn-locked" style="width:100%;justify-content:center" onclick="exportHours()" title="Unlocks after your first real verified delivery">🔒 Export locked — no deliveries yet</button>
+        ${history.length
+          ? `<button class="btn btn-sm mt16" style="width:100%;justify-content:center;background:var(--sprout);color:var(--ink)" onclick="exportHours()">Export summary for school</button>`
+          : `<button class="btn btn-sm mt16 btn-locked" style="width:100%;justify-content:center" onclick="exportHours()" title="Unlocks after your first verified delivery">🔒 Export locked — no deliveries yet</button>`}
       </div>
       <div class="card" style="padding:16px;margin-top:16px">
         <p class="small" style="font-weight:700;margin-bottom:8px">History</p>
@@ -1282,33 +1356,35 @@ function renderStu(){
     </aside>
   </div>`;
 }
-function doClaim(id){ try{ DB.claimPickup(id); toast(STUDENT.name+' claimed a pickup. The business was notified.'); }catch(e){ toast(e.message);} render(); }
-function doPicked(id){ DB.markPickedUp(id); toast('Picked up — food is in transit.'); render(); }
-function doDelivered(id,h){ DB.markDelivered(id); toast('Delivered! +'+h+' verified hours logged.', true); render(); }
-const EXPORT_UNLOCKED = false; // flip to true once real verified deliveries are tracked per account
-function exportHours(){
-  if(!EXPORT_UNLOCKED){
-    toast("Service-hours export is locked until you complete a real verified delivery.");
-    return;
-  }
-  const {total,history}=DB.studentHours();
+async function doClaim(id){ try{ await Data.claimPickup(id); toast('Route claimed — the business was notified.'); }catch(e){ toast(e.message);} await render(); }
+async function doPicked(id){ try{ await Data.markPickedUp(id); toast('Picked up — food is in transit.'); }catch(e){ toast(e.message);} await render(); }
+async function doDelivered(id,h){ try{ await Data.markDelivered(id); toast('Delivered! +'+h+' verified hours logged.', true); }catch(e){ toast(e.message);} await render(); }
+async function exportHours(){
+  const {total,history}=await Data.studentHours();
+  if(!history.length){ toast("You'll be able to export once you complete your first verified delivery."); return; }
+  const who = live() ? (userName(CURRENT_USER)||'Student') : STUDENT.name;
+  const slug = (who.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'student');
   const lines = history.map(h=>`  ${new Date(h.date).toLocaleDateString('en-US')}  ·  ${h.food} → ${h.shelter}  ·  +${h.hours}h`);
   const body=[
     'CRUMBLESS — VERIFIED SERVICE HOURS','==================================','',
-    'Student:   '+STUDENT.name,'Generated: '+new Date().toLocaleString('en-US'),
+    'Student:   '+who,'Generated: '+new Date().toLocaleString('en-US'),
     'Total verified hours: '+total,'','Deliveries:',
-    ...(lines.length?lines:['  (no completed deliveries yet)']),'',
+    ...lines,'',
     'Each entry represents a completed food-rescue delivery from a Maryland',
     'business to a local shelter, tracked from claim to drop-off.','',
     'Verified by Crumbless · crumbless.org'
   ].join('\n');
   const blob=new Blob([body],{type:'text/plain'}); const url=URL.createObjectURL(blob);
-  const a=document.createElement('a'); a.href=url; a.download='crumbless-service-hours-zakir.txt';
+  const a=document.createElement('a'); a.href=url; a.download='crumbless-service-hours-'+slug+'.txt';
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   toast('Service-hours summary downloaded.');
 }
 
-function render(){ if(role==='business') renderBiz(); else renderStu(); }
+async function render(){
+  SITES = await Data.listSites();
+  SITE_MAP = Object.fromEntries(SITES.map(s=>[s.id,s.name]));
+  if(role==='business') await renderBiz(); else await renderStu();
+}
 
 /* =========================================================================
    Landing page motion: nav, scroll progress, reveals, count-up, relay fill
