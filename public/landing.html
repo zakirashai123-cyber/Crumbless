@@ -1095,6 +1095,8 @@ async function saveProfile(e){
       const payload={ data }; if(pw) payload.password=pw;
       const { error } = await supa.auth.updateUser(payload);
       if(error) throw error;
+      // keep the profiles table (leaderboard/admin read it) in sync — role/status are protected server-side
+      try{ await supa.from('profiles').update({ name, business_name:business||null, school:school||null, grade:grade||null, phone:phone||null }).eq('id', CURRENT_USER.id); }catch(e){ console.warn('profile sync:', e.message); }
       const { data:gu } = await supa.auth.getUser(); if(gu&&gu.user) CURRENT_USER=gu.user;
     } else {
       const email=u.email, a=loadAccounts();
