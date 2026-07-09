@@ -526,6 +526,11 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
       <ul class="leaderboard" id="dashHistory"></ul>
     </div>
 
+    <div class="dash-panel" id="dashAdminPanel" style="display:none">
+      <div class="between"><p class="dash-label">Driver approvals</p><span class="pill pill-soft" id="dashAdminCount"></span></div>
+      <ul class="leaderboard" id="dashAdminList"></ul>
+    </div>
+
     <div class="dash-actions">
       <button class="btn btn-leaf" onclick="closeDashboard(); document.getElementById('demo').scrollIntoView({behavior:'smooth'})">Go to your demo &rarr;</button>
       <button class="btn btn-ghost" onclick="closeDashboard(); logout()">Log out</button>
@@ -643,6 +648,7 @@ const store = {
 };
 let SITES = store.sites.slice();
 let SITE_MAP = Object.fromEntries(SITES.map(s=>[s.id,s.name]));
+let SITE_CODE = {};
 const siteName = id => SITE_MAP[id] || 'Shelter';
 const DEMO_BIZ = 'biz-folly';
 
@@ -689,6 +695,8 @@ const DB = {
    ========================================================================= */
 function live(){ return !!(supaEnabled && supa && CURRENT_USER); }
 function businessNameOf(u){ const m=(u&&u.user_metadata)||{}; return m.business_name || userName(u) || 'A local business'; }
+/* true when a Supabase RPC/function isn't there yet (i.e. security.sql not run) */
+function isMissingFn(err){ return !!err && (err.code==='PGRST202' || /could not find the function|function .* does not exist/i.test(err.message||'')); }
 function fromRow(r){ return {
   id:r.id, businessId:r.business_id, businessName:r.business_name, food:r.food, category:r.category,
   quantity:r.quantity, pickupWindow:r.pickup_window, pickupAddress:r.pickup_address, dropoffSiteId:r.dropoff_site_id,
@@ -699,7 +707,7 @@ function fromRow(r){ return {
 const Data = {
   async listSites(){
     if(!live()) return DB.listSites();
-    const { data } = await supa.from('dropoff_sites').select('id,name,city,address').eq('active',true).order('name');
+    const { data } = await supa.from('dropoff_sites').select('*').eq('active',true).order('name');
     return data||[];
   },
   async listOpen(){
@@ -730,17 +738,31 @@ const Data = {
   },
   async claimPickup(id){
     if(!live()) return DB.claimPickup(id);
-    const { data, error } = await supa.from('pickups').update({status:'claimed', student_id:CURRENT_USER.id, student_name:userName(CURRENT_USER)}).eq('id',id).eq('status','open').select();
+    // server-authoritative claim (checks approval); fall back to direct update pre-security.sql
+    const { error } = await supa.rpc('claim_pickup', { p_id:id });
+    if(error && isMissingFn(error)){
+      const { data, error:e2 } = await supa.from('pickups').update({status:'claimed', student_id:CURRENT_USER.id, student_name:userName(CURRENT_USER)}).eq('id',id).eq('status','open').select();
+      if(e2) throw new Error(e2.message);
+      if(!data || !data.length) throw new Error('Sorry — this route was just claimed by someone else.');
+      return;
+    }
     if(error) throw new Error(error.message);
-    if(!data || !data.length) throw new Error('Sorry — this route was just claimed by someone else.');
   },
   async markPickedUp(id){
     if(!live()) return DB.markPickedUp(id);
-    const { error } = await supa.from('pickups').update({status:'in_transit'}).eq('id',id).eq('status','claimed'); if(error) throw new Error(error.message);
+    const { error } = await supa.rpc('pickup_picked_up', { p_id:id });
+    if(error && isMissingFn(error)){
+      const { error:e2 } = await supa.from('pickups').update({status:'in_transit'}).eq('id',id).eq('status','claimed'); if(e2) throw new Error(e2.message); return;
+    }
+    if(error) throw new Error(error.message);
   },
-  async markDelivered(id){
+  async markDelivered(id, code){
     if(!live()) return DB.markDelivered(id);
-    const { error } = await supa.from('pickups').update({status:'delivered'}).eq('id',id).eq('status','in_transit'); if(error) throw new Error(error.message);
+    const { error } = await supa.rpc('deliver_pickup', { p_id:id, p_code:code||'' });
+    if(error && isMissingFn(error)){
+      const { error:e2 } = await supa.from('pickups').update({status:'delivered'}).eq('id',id).eq('status','in_transit'); if(e2) throw new Error(e2.message); return;
+    }
+    if(error) throw new Error(error.message);
   },
   async studentHours(){
     if(!live()) return DB.studentHours();
@@ -773,7 +795,15 @@ const AUTH_KEY='crumbless_accounts', SESS_KEY='crumbless_session';
 const ADMIN_EMAIL='zakirashai@crumbless.org';   // exempt from license, tagged as Admin
 let authMode='login';
 let CURRENT_USER=null;
+let CURRENT_PROFILE=null;   // server-side profile row — role/approval live here, NOT in editable metadata
 let signupType='driver';   // 'driver' | 'business' (chosen at signup)
+/* the app uses 'driver' internally; the profiles table stores 'student' */
+function roleFromProfile(p){ if(!p) return null; return p.role==='student' ? 'driver' : p.role; }
+async function loadProfile(){
+  CURRENT_PROFILE=null;
+  if(!(supaEnabled && supa && CURRENT_USER)) return;
+  try{ const { data } = await supa.from('profiles').select('*').eq('id',CURRENT_USER.id).maybeSingle(); CURRENT_PROFILE=data||null; }catch(e){}
+}
 
 /* ---- init: load Supabase client only when configured ---- */
 function initAuth(){
@@ -800,19 +830,27 @@ function demoUser(){ const e=localStorage.getItem(SESS_KEY); if(!e) return null;
 
 /* ---- nav rendering (handles Supabase or demo user objects) ---- */
 function userName(u){ if(!u) return ''; const m=u.user_metadata||{}; return u.name || m.full_name || m.name || (u.email||'').split('@')[0]; }
-function paintUser(u){
-  CURRENT_USER = u || null;
+function renderAuthSlot(){
   const slot=document.getElementById('authSlot'); if(!slot) return;
+  const u=CURRENT_USER;
   if(u){
     const name=userName(u); const initial=(name||'?').trim()[0].toUpperCase();
-    const role=(u.user_metadata&&u.user_metadata.role)||u.role;
-    const badge = role==='admin' ? '<span class="admin-badge">Admin</span>' : '';
+    const badge = acctRoleOf(u)==='admin' ? '<span class="admin-badge">Admin</span>' : '';
     slot.innerHTML=`<button class="user-chip" title="Open your dashboard" onclick="openDashboard()"><span class="avatar">${esc(initial)}</span><span>${esc(name.split(' ')[0])}</span>${badge}</button> <button class="btn btn-ghost btn-sm" onclick="logout()">Log out</button>`;
   } else {
     slot.innerHTML=`<button class="btn btn-ghost btn-sm" onclick="openAuth('login')">Log in</button>`;
   }
+}
+function paintUser(u){
+  CURRENT_USER = u || null;
+  CURRENT_PROFILE = null;
+  renderAuthSlot();
   if(u && !localStorage.getItem('crumbless_welcomed')){ localStorage.setItem('crumbless_welcomed','1'); setTimeout(()=>{ try{ celebrate(); }catch(e){} }, 400); }
-  try { if(typeof applyDemoModeForUser==='function') applyDemoModeForUser(); } catch(e){}  // refresh demo view + lock state
+  if(u && supaEnabled && supa){
+    loadProfile().then(()=>{ renderAuthSlot(); try{ applyDemoModeForUser(); }catch(e){} });  // role/approval from profiles
+  } else {
+    try { if(typeof applyDemoModeForUser==='function') applyDemoModeForUser(); } catch(e){}
+  }
 }
 
 /* ---- user dashboard ---- */
@@ -822,7 +860,12 @@ const ICON_SHIELD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 /* first name + last initial, for leaderboard privacy: "Maya Rodriguez" -> "Maya R." */
 function lbName(n){ const parts=String(n||'').trim().split(/\s+/); if(!parts[0]) return 'Student'; return parts[0]+(parts[1]?(' '+parts[1][0].toUpperCase()+'.'):''); }
 
-function isApproved(u){ const r=acctRoleOf(u); if(r==='admin'||r==='business') return true; return r==='driver' && !!(u.user_metadata&&u.user_metadata.license_path); }
+function isCurrent(u){ return u && CURRENT_USER && u.id && u.id===CURRENT_USER.id; }
+function isApproved(u){
+  const r=acctRoleOf(u); if(r==='admin'||r==='business') return true;
+  if(isCurrent(u) && CURRENT_PROFILE) return CURRENT_PROFILE.status==='approved';   // server truth
+  return r==='driver' && !!(u.user_metadata&&u.user_metadata.license_path);          // pre-profile fallback
+}
 
 function lbHtml(arr, fmt, myVal){
   const medals=['🥇','🥈','🥉'];
@@ -889,6 +932,11 @@ const DEMO_TRIPS = [
 async function ensureDemoDeliveries(){
   if(!live()) return;
   try{
+    // preferred: bounded server-side demo seed (security.sql). Falls back to a
+    // direct insert only until security.sql is run.
+    const { error } = await supa.rpc('seed_demo_deliveries');
+    if(!error) return;
+    if(!isMissingFn(error)) { console.warn('seed_demo_deliveries:', error.message); return; }
     const { data: existing } = await supa.from('pickups').select('id').eq('student_id',CURRENT_USER.id).eq('status','delivered');
     const have=(existing||[]).length;
     if(have>=DEMO_MIN_DELIVERIES) return;
@@ -901,13 +949,36 @@ async function ensureDemoDeliveries(){
         quantity:t.quantity, pickup_window:'Completed', pickup_address:'—', dropoff_site_id:site?site.id:null,
         status:'delivered', hours_credit:1.5, student_id:CURRENT_USER.id, student_name:userName(CURRENT_USER) });
     }
-    if(rows.length){ const { error } = await supa.from('pickups').insert(rows); if(error) throw error; }
+    if(rows.length){ const { error:insErr } = await supa.from('pickups').insert(rows); if(insErr) throw insErr; }
   }catch(e){ console.warn('ensureDemoDeliveries:', e.message); }
 }
 function renderDashHistory(history){
   const el=document.getElementById('dashHistory'); if(!el) return;
   if(!history || !history.length){ el.innerHTML='<li class="lb-row lb-empty"><span class="muted small">No deliveries yet.</span></li>'; return; }
   el.innerHTML=history.slice(0,6).map(h=>`<li class="lb-row"><span class="lb-name">${esc(h.food)} <span class="muted small">&rarr; ${esc(h.shelter)}</span></span><span class="lb-hours">+${h.hours}h</span></li>`).join('');
+}
+
+/* ---- admin: approve pending drivers (server-enforced) ---- */
+async function renderAdminPanel(role){
+  const panel=document.getElementById('dashAdminPanel'); if(!panel) return;
+  if(role!=='admin' || !live()){ panel.style.display='none'; return; }
+  panel.style.display='';
+  const list=document.getElementById('dashAdminList'), count=document.getElementById('dashAdminCount');
+  list.innerHTML='<li class="lb-row lb-empty"><span class="muted small">Loading…</span></li>';
+  let rows=[];
+  try{ const { data } = await supa.from('profiles').select('id,name,email,role,status').eq('status','pending').order('email'); rows=data||[]; }
+  catch(e){ list.innerHTML='<li class="lb-row lb-empty"><span class="muted small">Could not load applicants.</span></li>'; return; }
+  if(count) count.textContent = rows.length+' pending';
+  if(!rows.length){ list.innerHTML='<li class="lb-row lb-empty"><span class="muted small">No drivers waiting for approval.</span></li>'; return; }
+  list.innerHTML=rows.map(r=>`<li class="lb-row"><span class="lb-name">${esc(r.name||'(no name)')} <span class="muted small">${esc(r.email||'')}</span></span><button class="btn btn-leaf btn-sm" onclick="approveDriver('${r.id}')">Approve</button></li>`).join('');
+}
+async function approveDriver(uid){
+  try{
+    const { error } = await supa.rpc('approve_driver', { p_uid:uid });
+    if(error){ toast(isMissingFn(error)?'Run security.sql to enable approvals.':('Approve failed: '+error.message)); return; }
+    toast('Driver approved ✓', true);
+    await renderAdminPanel('admin');
+  }catch(e){ toast('Approve failed: '+((e&&e.message)||'error')); }
 }
 
 async function renderLicenseCard(u, role, lic){
@@ -962,7 +1033,7 @@ function celebrate(){
 async function openDashboard(){
   let u = CURRENT_USER;
   if(!u){ openAuth('login'); return; }
-  if(supaEnabled && supa){ try { const { data } = await supa.auth.getUser(); if(data && data.user) u = data.user; } catch(e){} }
+  if(supaEnabled && supa){ try { const { data } = await supa.auth.getUser(); if(data && data.user){ u = data.user; CURRENT_USER = u; } } catch(e){} await loadProfile(); }
   const name = userName(u), role = acctRoleOf(u), lic = (u.user_metadata&&u.user_metadata.license_path);
   document.getElementById('dashAvatar').textContent = (name||'?').trim()[0].toUpperCase();
   document.getElementById('dashName').textContent = 'Welcome, '+name.split(' ')[0];
@@ -980,6 +1051,7 @@ async function openDashboard(){
   renderLicenseCard(u, role, lic);
   renderDashHistory(hist);
   await renderLeaderboard();
+  await renderAdminPanel(role);
   document.getElementById('dashOverlay').classList.add('open');
   window.scrollTo(0,0);
 }
@@ -1341,8 +1413,11 @@ async function doCancel(id){ try{ await Data.cancelPickup(id); toast('Pickup can
 /* ---------- student dashboard ---------- */
 /* a yellow padlock that dangles; only verified drivers (license on file) can claim */
 const PADLOCK_SVG = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3" stroke="#F2B441" stroke-width="2.6" stroke-linecap="round"/><rect x="4" y="10" width="16" height="11" rx="2.6" fill="#F2B441"/><circle cx="12" cy="15" r="1.7" fill="#0A2417"/><rect x="11.2" y="15.4" width="1.6" height="3.4" rx="0.8" fill="#0A2417"/></svg>';
-function acctRoleOf(u){ return u ? ((u.user_metadata&&u.user_metadata.role)||u.role||'driver') : null; }
-function canDrive(){ const u=CURRENT_USER; if(!u) return false; const r=acctRoleOf(u); if(r==='admin') return true; return r==='driver' && !!(u.user_metadata&&u.user_metadata.license_path); }
+function acctRoleOf(u){
+  if(isCurrent(u) && CURRENT_PROFILE) return roleFromProfile(CURRENT_PROFILE);   // server truth
+  return u ? ((u.user_metadata&&u.user_metadata.role)||u.role||'driver') : null;
+}
+function canDrive(){ const u=CURRENT_USER; if(!u) return false; const r=acctRoleOf(u); if(r==='admin') return true; return r==='driver' && isApproved(u); }
 
 /* choose which side of the demo to show based on who's logged in:
    logged-out or admin -> both (toggle visible); driver -> student only; business -> business only */
@@ -1377,8 +1452,9 @@ async function renderStu(){
         <span class="leafnum small">+${p.hoursCredit}h on delivery</span>
         ${p.status==='claimed'
           ? `<button class="btn btn-sm" style="background:var(--forest);color:var(--cream)" onclick="doPicked('${p.id}')">Mark picked up</button>`
-          : `<button class="btn btn-sm btn-leaf" onclick="doDelivered('${p.id}',${p.hoursCredit})">Mark delivered</button>`}
+          : `<button class="btn btn-sm btn-leaf" onclick="doDelivered('${p.id}',${p.hoursCredit},'${esc(SITE_CODE[p.dropoffSiteId]||'')}')">Mark delivered</button>`}
       </div>
+      ${p.status==='in_transit' && SITE_CODE[p.dropoffSiteId] ? `<p class="small muted" style="margin-top:8px">Shelter code <strong style="font-family:var(--mono)">${esc(SITE_CODE[p.dropoffSiteId])}</strong> confirms the drop-off. (In the demo it's shown here; in real use the shelter gives it to the driver.)</p>` : ''}
     </li>`).join('')+`</ul></div>` : '';
 
   const openHtml = open.length? open.map(p=>`
@@ -1420,7 +1496,14 @@ async function renderStu(){
 }
 async function doClaim(id){ try{ await Data.claimPickup(id); toast('Route claimed — the business was notified.'); }catch(e){ toast(e.message);} await render(); }
 async function doPicked(id){ try{ await Data.markPickedUp(id); toast('Picked up — food is in transit.'); }catch(e){ toast(e.message);} await render(); }
-async function doDelivered(id,h){ try{ await Data.markDelivered(id); toast('Delivered! +'+h+' verified hours logged.', true); }catch(e){ toast(e.message);} await render(); }
+async function doDelivered(id,h,codeHint){
+  let code='';
+  if(live() && codeHint){
+    code = prompt('Enter the shelter code to confirm this delivery (demo code: '+codeHint+'):', codeHint);
+    if(code===null) return; // driver cancelled
+  }
+  try{ await Data.markDelivered(id, code); toast('Delivered! +'+h+' verified hours logged.', true); }catch(e){ toast(e.message);} await render();
+}
 async function exportHours(){
   const {total,history}=await Data.studentHours();
   if(!history.length){ toast("You'll be able to export once you complete your first verified delivery."); return; }
@@ -1445,6 +1528,7 @@ async function exportHours(){
 async function render(){
   SITES = await Data.listSites();
   SITE_MAP = Object.fromEntries(SITES.map(s=>[s.id,s.name]));
+  SITE_CODE = Object.fromEntries(SITES.map(s=>[s.id,s.code||'']));
   if(role==='business') await renderBiz(); else await renderStu();
 }
 
