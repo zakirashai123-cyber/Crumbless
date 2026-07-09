@@ -1,9 +1,27 @@
 # Crumbless — what's done and what's next
 
-_Last updated: 2026-07-07_
+_Last updated: 2026-07-09_
 
 This is the working site (`index.html`, mirrored to `public/landing.html`, served live
 on GitHub Pages at crumbless.org). The Next.js app in `app/`/`lib/` is a backup.
+
+## 🚨 DO THESE 2 THINGS to finish the security hardening
+
+The site code is already deployed and safe — it uses the new server functions if they
+exist and falls back to the old path if not, so nothing is broken right now. To close
+the security holes for real:
+
+1. **Run `supabase/security.sql`** in Supabase → SQL Editor. This makes role, approval,
+   and "verified" hours server-authoritative (a driver can no longer self-grant hours
+   or make themselves admin), and fixes the `hours_entries` view that currently leaks
+   to anyone with the public key. Safe to re-run. (Requires Postgres 15+, which your
+   project is.) After running it: drivers must be **approved** by an admin before they
+   can claim — approve them from the new "Driver approvals" panel in your dashboard.
+2. **Set the `licenses` Storage bucket to Private** (Storage → licenses → make sure it
+   is not Public). This holds minors' license photos.
+
+Tell me once #1 is done and I'll verify the hardened claim/deliver/approve flows
+end-to-end against your database.
 
 ## ✅ Done
 
@@ -15,19 +33,31 @@ on GitHub Pages at crumbless.org). The Next.js app in `app/`/`lib/` is a backup.
   dashboard reflects real hours.
 - **Schema live & validated** — `supabase/schema.sql` has been run; signup trigger
   auto-creates profiles, RLS is enforced.
-- **Dashboard profile editing**, legal pages (Terms/Privacy), SEO/social meta +
-  favicon, accessibility skip link, real Google Map with fullscreen.
+- **Real leaderboards** — `leaderboard()` function live; dashboard shows top 5 by
+  hours and by deliveries, privacy-safe ("First L."), your row highlighted.
+- **Demo integrated into the dashboard** — each account is seeded with ≥2 demo
+  deliveries; dashboard shows a "Your deliveries" list + export (file named per account).
+- **Security hardening (client side, deployed)** — role/approval now read from the
+  `profiles` table, not editable metadata; claim/pickup/deliver go through server
+  RPCs (deliver requires a shelter code); admin **Driver approvals** panel; license
+  upload surfaces real errors; demo vs saved-account is now explained. The matching
+  `supabase/security.sql` is written and waiting for you to run (see top).
+- **Dashboard profile editing** (syncs to the profiles table), legal pages
+  (Terms/Privacy), SEO/social meta + favicon, accessibility skip link, real Google
+  Map with fullscreen.
 
-## 🔧 Needs you (can't be done without your accounts/decisions)
+## 🔧 Still needs you (after the 2 steps above)
 
-### 1. Real leaderboards
-The dashboard leaderboards are empty because RLS only lets a user read their own
-hours. A cross-user ranking needs a **public aggregate view or `security definer`
-function** in Supabase (safe to add — I can write it). Say the word and I'll add it
-to `schema.sql` and wire the leaderboards.
+### Known follow-ups
+- `hours_entries.delivered_at` uses the pickup's `created_at` (no separate delivered
+  timestamp yet).
+- The `seed_demo_deliveries()` function grants demo hours without a real delivery —
+  it's a demo affordance; remove it before a real public launch.
+- Delete the `qa-selftest…@crumbless.org` test user (Supabase → Authentication).
 
-### 2. Admin approval dashboard
-Reviewing driver license uploads needs server-side access (Supabase service role),
+### Admin approval dashboard
+The UI is built. Reviewing driver **license images** in that panel would additionally
+need server-side access (Supabase service role),
 so it can't be safely done in the public page. Decide: keep auto-approve, or add a
 review step. If you want it, this is a small backend (Supabase Edge Function) build.
 
