@@ -67,13 +67,33 @@ create policy pickups_update on public.pickups
   for update using (business_id = auth.uid() and status = 'open')
   with check (business_id = auth.uid() and status in ('open','cancelled'));
 
--- who may drive: an approved student driver, or an admin
+-- Who may drive. Drivers are AUTO-APPROVED — the in-browser AI license scan at
+-- upload time is the screening gate, so there is no manual approval queue.
+-- (Note: a browser-side scan is a screen, not fraud-proof. The protection that
+-- actually matters — hours — is enforced by deliver_pickup's shelter code below.)
 create or replace function public.can_drive(uid uuid)
 returns boolean language sql security definer stable set search_path = public as $$
   select exists(select 1 from public.profiles
-    where id = uid and (role = 'admin' or (role = 'student' and status = 'approved')));
+    where id = uid and role in ('admin','student'));
 $$;
 grant execute on function public.can_drive(uuid) to authenticated;
+
+-- Auto-approve on signup (no manual queue) and backfill anyone still pending.
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.profiles (id, role, name, email, status)
+  values (
+    new.id,
+    public.role_from_text(new.raw_user_meta_data->>'role'),
+    coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', ''),
+    coalesce(new.email, ''),
+    'approved'
+  )
+  on conflict (id) do nothing;
+  return new;
+end $$;
+update public.profiles set status = 'approved' where status = 'pending';
 
 create or replace function public.claim_pickup(p_id uuid)
 returns public.pickups language plpgsql security definer set search_path = public as $$
@@ -120,14 +140,8 @@ begin
 end $$;
 grant execute on function public.deliver_pickup(uuid, text) to authenticated;
 
--- Approve a driver (admin only) — powers the admin approval screen.
-create or replace function public.approve_driver(p_uid uuid)
-returns void language plpgsql security definer set search_path = public as $$
-begin
-  if not public.is_admin() then raise exception 'Admins only.'; end if;
-  update public.profiles set status='approved' where id = p_uid;
-end $$;
-grant execute on function public.approve_driver(uuid) to authenticated;
+-- No manual driver-approval function: approval is automatic (AI license scan).
+drop function if exists public.approve_driver(uuid);
 
 -- ============================================================================
 -- 6) DEMO ONLY — bounded, server-side demo deliveries (max 2 per account).

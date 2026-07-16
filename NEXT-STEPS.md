@@ -11,12 +11,12 @@ The site code is already deployed and safe — it uses the new server functions 
 exist and falls back to the old path if not, so nothing is broken right now. To close
 the security holes for real:
 
-1. **Run `supabase/security.sql`** in Supabase → SQL Editor. This makes role, approval,
-   and "verified" hours server-authoritative (a driver can no longer self-grant hours
+1. **Run `supabase/security.sql`** in Supabase → SQL Editor. This makes role and
+   "verified" hours server-authoritative (a driver can no longer self-grant hours
    or make themselves admin), and fixes the `hours_entries` view that currently leaks
    to anyone with the public key. Safe to re-run. (Requires Postgres 15+, which your
-   project is.) After running it: drivers must be **approved** by an admin before they
-   can claim — approve them from the new "Driver approvals" panel in your dashboard.
+   project is.) Drivers are **auto-approved** — the in-browser AI license scan is the
+   gate; there is no manual approval queue.
 2. **Set the `licenses` Storage bucket to Private** (Storage → licenses → make sure it
    is not Public). This holds minors' license photos.
 
@@ -33,15 +33,16 @@ end-to-end against your database.
   dashboard reflects real hours.
 - **Schema live & validated** — `supabase/schema.sql` has been run; signup trigger
   auto-creates profiles, RLS is enforced.
-- **Real leaderboards** — `leaderboard()` function live; dashboard shows top 5 by
-  hours and by deliveries, privacy-safe ("First L."), your row highlighted.
 - **Demo integrated into the dashboard** — each account is seeded with ≥2 demo
   deliveries; dashboard shows a "Your deliveries" list + export (file named per account).
-- **Security hardening (client side, deployed)** — role/approval now read from the
-  `profiles` table, not editable metadata; claim/pickup/deliver go through server
-  RPCs (deliver requires a shelter code); admin **Driver approvals** panel; license
-  upload surfaces real errors; demo vs saved-account is now explained. The matching
-  `supabase/security.sql` is written and waiting for you to run (see top).
+- **Security hardening (client side, deployed)** — role now read from the `profiles`
+  table, not editable metadata; claim/pickup/deliver go through server RPCs (deliver
+  requires a shelter code); license upload surfaces real errors; demo vs saved-account
+  is now explained. The matching `supabase/security.sql` is waiting for you to run.
+- **Leaderboards removed for now** (2026-07-09). The `leaderboard()` SQL function is
+  still in the database and `schema.sql`, so re-enabling is just re-adding the UI.
+- **Manual driver approvals removed** (2026-07-09) — approval is automatic; the
+  in-browser AI license scan is the gate.
 - **Dashboard profile editing** (syncs to the profiles table), legal pages
   (Terms/Privacy), SEO/social meta + favicon, accessibility skip link, real Google
   Map with fullscreen.
@@ -55,9 +56,12 @@ end-to-end against your database.
   it's a demo affordance; remove it before a real public launch.
 - Delete the `qa-selftest…@crumbless.org` test user (Supabase → Authentication).
 
-### Admin approval dashboard
-The UI is built. Reviewing driver **license images** in that panel would additionally
-need server-side access (Supabase service role),
+### Driver vetting (if you ever want it stronger than the AI scan)
+Approval is currently automatic via the in-browser AI license scan, which is a
+screening layer, not fraud-proof — a determined user can bypass a browser-side check.
+The thing that actually protects "verified hours" is the shelter code in
+`deliver_pickup`, which is server-enforced. If you later want real vetting or to review
+driver **license images**, that needs server-side access (Supabase service role),
 so it can't be safely done in the public page. Decide: keep auto-approve, or add a
 review step. If you want it, this is a small backend (Supabase Edge Function) build.
 
