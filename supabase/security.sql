@@ -61,9 +61,20 @@ update public.dropoff_sites
 -- 5) Lock pickups: clients can only create OPEN pickups and cancel their own.
 --    Claim / pickup / deliver happen ONLY through the functions below.
 -- ============================================================================
+-- Only BUSINESS (or admin) accounts may post food. Without the role check a
+-- student could post fake food, claim it themselves, and mint their own hours.
+create or replace function public.can_post_food(uid uuid)
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists(select 1 from public.profiles where id = uid and role in ('business','admin'));
+$$;
+grant execute on function public.can_post_food(uuid) to authenticated;
+
 drop policy if exists pickups_business_insert on public.pickups;
 create policy pickups_business_insert on public.pickups
-  for insert with check (business_id = auth.uid() and status = 'open' and student_id is null);
+  for insert with check (
+    business_id = auth.uid() and status = 'open' and student_id is null
+    and public.can_post_food(auth.uid())
+  );
 
 drop policy if exists pickups_update on public.pickups;
 create policy pickups_update on public.pickups
@@ -150,7 +161,33 @@ drop function if exists public.approve_driver(uuid);
 -- 6) DEMO ONLY — bounded, server-side demo deliveries (max 2 per account).
 --    Remove this function before a real launch so hours come only from
 --    code-verified deliveries.
+--
+--    Demo rows are flagged is_demo so the dashboard and the exported school
+--    document can NEVER present fabricated hours as "verified".
 -- ============================================================================
+alter table public.pickups add column if not exists is_demo boolean not null default false;
+-- backfill rows created by the earlier demo seeder
+update public.pickups set is_demo = true
+ where status='delivered' and pickup_window='Completed' and pickup_address='—' and is_demo = false;
+
+-- hours_entries must expose is_demo (recreate, then re-apply the RLS fix)
+drop view if exists public.hours_entries;
+create view public.hours_entries as
+  select
+    p.id                        as id,
+    p.id                        as pickup_id,
+    p.student_id                as student_id,
+    p.food                      as food,
+    p.business_name             as business_name,
+    coalesce(d.name, 'Shelter') as dropoff_site_name,
+    p.created_at                as delivered_at,
+    p.hours_credit              as hours,
+    p.is_demo                   as is_demo
+  from public.pickups p
+  left join public.dropoff_sites d on d.id = p.dropoff_site_id
+  where p.status = 'delivered';
+alter view public.hours_entries set (security_invoker = on);
+
 create or replace function public.seed_demo_deliveries()
 returns void language plpgsql security definer set search_path = public as $$
 declare have int; site_id uuid; nm text; i int;
@@ -160,8 +197,8 @@ begin
   select id into site_id from public.dropoff_sites where active order by name limit 1;
   select name into nm from public.profiles where id=auth.uid();
   for i in (have+1)..2 loop
-    insert into public.pickups(business_id,business_name,food,category,quantity,pickup_window,pickup_address,dropoff_site_id,status,hours_credit,student_id,student_name)
-    values(auth.uid(),'Maple Street Café','Sandwiches & salads','Prepared','~15 meals','Completed','—',site_id,'delivered',1.5,auth.uid(),coalesce(nm,'You'));
+    insert into public.pickups(business_id,business_name,food,category,quantity,pickup_window,pickup_address,dropoff_site_id,status,hours_credit,student_id,student_name,is_demo)
+    values(auth.uid(),'Maple Street Café','Sandwiches & salads','Prepared','~15 meals','Completed','—',site_id,'delivered',1.5,auth.uid(),coalesce(nm,'You'),true);
   end loop;
 end $$;
 grant execute on function public.seed_demo_deliveries() to authenticated;

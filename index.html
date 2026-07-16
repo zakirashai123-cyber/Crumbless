@@ -117,7 +117,7 @@ section{scroll-margin-top:80px}
 
 /* footer */
 footer{background:var(--forest);color:var(--cream);padding:56px 0;border-top:1px solid var(--line)}
-.foot-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:32px}
+.foot-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr 1fr;gap:28px}
 @media(max-width:820px){.foot-grid{grid-template-columns:1fr}}
 footer h4{color:var(--sprout);font-size:.9rem;margin-bottom:12px}
 footer ul{list-style:none;display:flex;flex-direction:column;gap:8px}
@@ -348,7 +348,7 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
 
   <!-- PARTNERS -->
   <div class="partners"><div class="wrap row">
-    <span class="name">To Be Determined Food Banks</span>
+    <span class="name">Pilot — no partner shelters signed yet</span>
   </div></div>
 
   <!-- HOW -->
@@ -428,11 +428,11 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
     <div class="wrap">
       <div class="reveal"><p class="eyebrow">Safety &amp; trust</p><h2 class="display h2" style="margin-top:12px">Built for the questions schools and parents ask first.</h2></div>
       <div class="grid2">
-        <div class="card feat reveal"><h3 style="font-size:1.1rem">Student vetting</h3><p class="small">Sign-up collects a driver's license and proof of insurance. An admin approves each student before they can claim a route.</p></div>
-        <div class="card feat reveal"><h3 style="font-size:1.1rem">Guardian consent</h3><p class="small">Minors provide a guardian consent and contact at sign-up — built in, not bolted on.</p></div>
+        <div class="card feat reveal"><h3 style="font-size:1.1rem">Licence on file</h3><p class="small">Every driver uploads a driver's licence at sign-up. It's scanned in your browser to check it reads as a real licence before we accept it — a screening step, not identity verification.</p></div>
+        <div class="card feat reveal"><h3 style="font-size:1.1rem">Verified by the shelter</h3><p class="small">Hours are only credited when the driver enters the shelter's code at drop-off. That check runs on our server, so hours can't be self-awarded.</p></div>
         <div class="card feat reveal"><h3 style="font-size:1.1rem">Food safety</h3><p class="small">Simple handling guidance appears at pickup, and category tags flag anything that needs refrigeration.</p></div>
         <div class="card feat reveal"><h3 style="font-size:1.1rem">Donor liability</h3><p class="small">Donations are generally protected under the federal Good Samaritan Food Donation Act. Not legal advice — confirm specifics with a lawyer.</p></div>
-        <div class="card feat reveal"><h3 style="font-size:1.1rem">Accountability</h3><p class="small">Optional photo capture at pickup and drop-off creates a verifiable record for both the donation and the logged hours.</p></div>
+        <div class="card feat reveal"><h3 style="font-size:1.1rem">Not built yet — being honest</h3><p class="small">Guardian consent, date of birth, proof of insurance, and photo capture at drop-off are <strong>not implemented</strong>. They're required before any school pilot, and we won't claim them until they exist.</p></div>
       </div>
     </div>
   </section>
@@ -454,6 +454,7 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
     <div><h4>Product</h4><ul><li><a href="#how">How it works</a></li><li><a href="#why">Why Crumbless</a></li><li><a href="#demo">Live demo</a></li></ul></div>
     <div><h4>Get involved</h4><ul><li><a href="#demo" onclick="setRole('business')">Donate surplus food</a></li><li><a href="#demo" onclick="setRole('student')">Drive &amp; earn hours</a></li><li><a href="#demo">Partner a shelter</a></li><li><a href="mailto:hello@crumbless.org">Contact us</a></li></ul></div>
     <div><h4>Legal</h4><ul><li><a href="#" onclick="openLegal('terms');return false">Terms of Service</a></li><li><a href="#" onclick="openLegal('privacy');return false">Privacy Policy</a></li></ul></div>
+    <div><h4>Support</h4><ul><li><a href="mailto:hello@crumbless.org">hello@crumbless.org</a></li><li><span class="small" style="color:rgba(251,253,248,.72)">We reply within a day.</span></li></ul></div>
   </div>
 </footer>
 
@@ -545,17 +546,20 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
       </div>
       <label class="field" id="nameField" style="display:none"><span>Full name</span>
         <input class="inp" id="authName" placeholder="Your name" autocomplete="name"></label>
+      <label class="field" id="bizNameField" style="display:none"><span>Business name</span>
+        <input class="inp" id="authBizName" placeholder="e.g. Maple Street Café" autocomplete="organization"></label>
       <label class="field"><span>Email</span>
         <input class="inp" id="authEmail" type="email" placeholder="you@email.com" autocomplete="email" oninput="onAuthEmailInput()" required></label>
       <label class="field"><span>Password</span>
         <input class="inp" id="authPassword" type="password" placeholder="At least 6 characters" autocomplete="current-password" required></label>
       <label class="field" id="licenseField" style="display:none"><span>Driver's license</span>
         <input class="inp" id="authLicense" type="file" accept="image/*">
-        <span class="lic-hint">Upload a clear, well-lit photo of the front of your license. We automatically scan it to confirm it's a real driver's license.</span></label>
+        <span class="lic-hint">Upload a clear, well-lit photo of the front of your licence. We scan it in your browser to check it reads like a licence and catch wrong photos — it doesn't verify the licence is yours or unexpired.</span></label>
       <label class="lic-optout" id="noLicenseRow" style="display:none">
         <input type="checkbox" id="authNoLicense" onchange="onNoLicenseToggle()">
         <span>I don't have a driver's license yet — let me just browse for now</span></label>
       <button class="btn btn-leaf btn-block" type="submit" id="authSubmit">Log in</button>
+      <p class="auth-switch" id="authForgotRow"><button type="button" onclick="forgotPassword()">Forgot your password?</button></p>
     </form>
 
     <button class="btn btn-ghost btn-block" id="authToggleBtn" style="margin-top:10px" onclick="setAuthMode('signup')">Create account</button>
@@ -751,8 +755,13 @@ const Data = {
   async studentHours(){
     if(!live()) return DB.studentHours();
     const { data } = await supa.from('hours_entries').select('*').eq('student_id',CURRENT_USER.id).order('delivered_at',{ascending:false});
-    const history=(data||[]).map(h=>({ id:h.id, date:h.delivered_at, food:h.food, shelter:h.dropoff_site_name, hours:Number(h.hours) }));
-    return { total:Math.round(history.reduce((s,h)=>s+h.hours,0)*100)/100, history };
+    const history=(data||[]).map(h=>({ id:h.id, date:h.delivered_at, food:h.food, shelter:h.dropoff_site_name, hours:Number(h.hours), demo:!!h.is_demo }));
+    const verified = history.filter(h=>!h.demo);
+    return {
+      total:Math.round(history.reduce((s,h)=>s+h.hours,0)*100)/100,
+      verifiedTotal:Math.round(verified.reduce((s,h)=>s+h.hours,0)*100)/100,
+      history
+    };
   }
 };
 
@@ -846,7 +855,7 @@ function isCurrent(u){ return u && CURRENT_USER && u.id && u.id===CURRENT_USER.i
    "verified" here means a scanned licence is on file. */
 function isApproved(u){
   const r=acctRoleOf(u); if(r==='admin'||r==='business') return true;
-  return r==='driver' && !!(u.user_metadata&&u.user_metadata.license_path);
+  return r==='driver' && !!(u&&u.user_metadata&&u.user_metadata.license_path);
 }
 function toggleDrivers(btn){
   const open = btn.getAttribute('aria-expanded')==='true';
@@ -910,7 +919,7 @@ async function ensureDemoDeliveries(){
 function renderDashHistory(history){
   const el=document.getElementById('dashHistory'); if(!el) return;
   if(!history || !history.length){ el.innerHTML='<li class="lb-row lb-empty"><span class="muted small">No deliveries yet.</span></li>'; return; }
-  el.innerHTML=history.slice(0,6).map(h=>`<li class="lb-row"><span class="lb-name">${esc(h.food)} <span class="muted small">&rarr; ${esc(h.shelter)}</span></span><span class="lb-hours">+${h.hours}h</span></li>`).join('');
+  el.innerHTML=history.slice(0,6).map(h=>`<li class="lb-row"><span class="lb-name">${esc(h.food)} <span class="muted small">&rarr; ${esc(h.shelter)}</span>${h.demo?' <span class="pill pill-soft" style="font-size:.6rem">demo</span>':''}</span><span class="lb-hours">+${h.hours}h</span></li>`).join('');
 }
 
 async function renderLicenseCard(u, role, lic){
@@ -974,11 +983,14 @@ async function openDashboard(){
   document.getElementById('dashRole').textContent = role==='admin'?'Administrator':(role==='business'?'Business':'Student Driver');
   document.getElementById('dashRoleIco').innerHTML = role==='business'?ICON_STORE:(role==='admin'?ICON_SHIELD:ICON_CAR);
   await ensureDemoDeliveries();
-  let hrs=0.0; const goal=10; let hist=[];
-  if(live()){ try{ const {total,history}=await Data.studentHours(); hrs=total||0; hist=history||[]; }catch(e){} }
-  document.getElementById('dashHours').textContent = hrs.toFixed(1);
-  document.getElementById('dashHoursBar').style.width = Math.min(100,(hrs/goal)*100)+'%';
-  document.getElementById('dashHoursNote').textContent = hrs.toFixed(0)+' of '+goal+' hours to your next badge';
+  let hrs=0.0, vHrs=0.0; const goal=10; let hist=[];
+  if(live()){ try{ const {total,verifiedTotal,history}=await Data.studentHours(); hrs=total||0; vHrs=(typeof verifiedTotal==='number'?verifiedTotal:total)||0; hist=history||[]; }catch(e){} }
+  const demoHrs = Math.round((hrs-vHrs)*100)/100;
+  document.getElementById('dashHours').textContent = vHrs.toFixed(1);
+  document.getElementById('dashHoursBar').style.width = Math.min(100,(vHrs/goal)*100)+'%';
+  document.getElementById('dashHoursNote').textContent = demoHrs>0
+    ? vHrs.toFixed(0)+' of '+goal+' hours to your next badge · +'+demoHrs+'h demo (not counted)'
+    : vHrs.toFixed(0)+' of '+goal+' hours to your next badge';
   document.getElementById('dashSince').textContent = u.created_at ? new Date(u.created_at).toLocaleDateString('en-US',{month:'long',year:'numeric'}) : 'Today';
   renderLicenseCard(u, role, lic);
   renderDashHistory(hist);
@@ -1050,6 +1062,18 @@ async function logout(){
 
 function authError(msg){ const e=document.getElementById('authError'); e.textContent=msg; e.classList.toggle('show', !!msg); }
 
+async function forgotPassword(){
+  const email=document.getElementById('authEmail').value.trim().toLowerCase();
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ authError('Enter your email address above, then tap “Forgot your password?”.'); return; }
+  if(!(supaEnabled && supa)){ authError('Password reset needs a connection — please try again later.'); return; }
+  try{
+    const { error } = await supa.auth.resetPasswordForEmail(email, { redirectTo: location.origin });
+    if(error) throw error;
+    authError(''); closeAuth();
+    toast('If that email has an account, a reset link is on its way.', true);
+  }catch(e){ authError((e&&e.message)||'Could not send a reset link.'); }
+}
+
 function setAuthMode(mode){
   authMode=mode; authError('');
   const signup = mode==='signup';
@@ -1060,6 +1084,7 @@ function setAuthMode(mode){
   document.getElementById('authPassword').setAttribute('autocomplete', signup?'new-password':'current-password');
   document.getElementById('authToggleBtn').style.display = signup?'none':'flex';
   document.getElementById('authSwitch').style.display    = signup?'block':'none';
+  document.getElementById('authForgotRow').style.display = signup?'none':'block';
   if(signup) setSignupType('driver'); else refreshLicenseVisibility();
 }
 
@@ -1073,6 +1098,8 @@ function refreshLicenseVisibility(){
   document.getElementById('acctTypeRow').style.display = (signup && !isAdmin) ? 'block' : 'none';
   document.getElementById('noLicenseRow').style.display = (signup && !isAdmin && isDriver) ? 'flex' : 'none';
   document.getElementById('licenseField').style.display = (signup && !isAdmin && isDriver && !noLic) ? 'block' : 'none';
+  document.getElementById('bizNameField').style.display = (signup && !isAdmin && !isDriver) ? 'block' : 'none';
+  document.getElementById('authName').required = signup;   // an account must have a name
 }
 function setSignupType(t){
   signupType=t;
@@ -1197,6 +1224,7 @@ function closeLegal(){ document.getElementById('legalModal').classList.remove('o
 async function submitAuth(e){
   e.preventDefault();
   const name=document.getElementById('authName').value.trim();
+  const bizName=document.getElementById('authBizName').value.trim();
   const email=document.getElementById('authEmail').value.trim().toLowerCase();
   const pw=document.getElementById('authPassword').value;
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ authError('Please enter a valid email address.'); return false; }
@@ -1204,6 +1232,10 @@ async function submitAuth(e){
 
   const isAdmin = email===ADMIN_EMAIL;
   const acctRole = isAdmin ? 'admin' : signupType;   // 'admin' | 'driver' | 'business'
+  if(authMode==='signup'){
+    if(!name){ authError('Please enter your full name.'); return false; }
+    if(acctRole==='business' && !bizName){ authError('Please enter your business name.'); return false; }
+  }
   const noLicense = document.getElementById('authNoLicense').checked;
   const licenseFile = document.getElementById('authLicense').files[0];
   if(authMode==='signup' && acctRole==='driver' && !noLicense){
@@ -1217,12 +1249,12 @@ async function submitAuth(e){
 
   if(supaEnabled && supa){
     if(authMode==='signup'){
-      const {data,error}=await supa.auth.signUp({ email, password:pw, options:{ data:{ full_name: name||email.split('@')[0], role: acctRole } } });
+      const {data,error}=await supa.auth.signUp({ email, password:pw, options:{ data:{ full_name: name||email.split('@')[0], role: acctRole, business_name: bizName||null } } });
       if(error){ authError(error.message); return false; }
       if(!data.session){ closeAuth(); toast('Almost there — check your email to confirm your account.', true); return false; }
       if(acctRole==='driver' && licenseFile){
         try { const path=await uploadLicense(data.user.id, licenseFile); await supa.auth.updateUser({ data:{ license_path: path } }); }
-        catch(err){ console.warn('License upload failed (is the "licenses" storage bucket set up?):', err.message); }
+        catch(err){ console.error('License upload failed:', err); toast('Account created, but your licence didn’t upload: '+((err&&err.message)||'unknown error')+' — add it from your dashboard.'); }
       }
       closeAuth(); toast(isAdmin?'Admin account ready — welcome!':('Account created — welcome'+(acctRole==='business'?', partner':'')+'!'), true);
     } else {
@@ -1283,7 +1315,13 @@ function setRole(r){
   document.getElementById('stuView').style.display = r==='student'?'':'none';
   render();
 }
-function gotoDemo(r){ setRole(r); document.getElementById('demo').scrollIntoView({behavior:'smooth'}); }
+function gotoDemo(r){
+  // Don't drop a driver into the business view (or vice versa) — respect the account's role.
+  const acct = acctRoleOf(CURRENT_USER);
+  if(acct==='driver' && r==='business'){ toast('You’re signed in as a driver — here are routes you can claim.'); r='student'; }
+  else if(acct==='business' && r==='student'){ toast('You’re signed in as a business — post surplus food here.'); r='business'; }
+  setRole(r); document.getElementById('demo').scrollIntoView({behavior:'smooth'});
+}
 
 /* ---------- business dashboard ---------- */
 const CATS=['Prepared','Produce','Bakery','Dairy','Packaged'];
@@ -1298,7 +1336,7 @@ async function renderBiz(){
       <div class="between"><div><p style="font-weight:700">${esc(p.food)}</p><p class="small muted">${esc(p.quantity)} · ${esc(p.pickupWindow)}</p></div>${statusBadge(p.status)}</div>
       <div class="mt12" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${catChip(p.category)}<span class="small muted">→ ${esc(siteName(p.dropoffSiteId))}</span></div>
       <div class="between bt">
-        <span class="small muted">${p.studentName?('Driver: <strong style="color:var(--text)">'+esc(p.studentName)+'</strong>'):'Waiting for a driver…'}</span>
+        <span class="small muted">${p.studentName?('Driver: <strong style="color:var(--text)">'+esc(p.studentName)+'</strong>'):(p.status==='cancelled'?'Cancelled — not collected':(p.status==='open'?'Waiting for a driver…':''))}</span>
         ${p.status==='open'?`<button class="linkbtn" onclick="doCancel('${p.id}')">Cancel</button>`:''}
         ${p.status==='delivered'?`<span class="leafnum small">+${p.hoursCredit}h logged</span>`:''}
       </div>
@@ -1317,13 +1355,15 @@ async function renderBiz(){
           <label class="field"><span>Pickup window</span><input class="inp" id="fWin" placeholder="Today 4–6pm" required></label>
         </div>
         <label class="field"><span>Pickup address</span><input class="inp" id="fAddr" placeholder="Street, city, MD" required></label>
-        <label class="field"><span>Send it to</span><select class="inp" id="fSite">${opts}</select></label>
+        <label class="field"><span>Send it to</span><select class="inp" id="fSite">${opts}</select>
+          <span class="lic-hint">Pilot: these are sample drop-off sites, not signed partner shelters. Don't send real food yet.</span></label>
         <button class="btn btn-leaf" type="submit" style="width:100%;justify-content:center">Post surplus food →</button>
         <p class="legalnote">Food donations are generally protected under the federal <strong style="color:var(--text)">Good Samaritan Food Donation Act</strong>. This isn't legal advice — confirm specifics with a lawyer.</p>
       </div>
     </form>
     <div>
       <div class="between" style="margin-bottom:12px"><h3 class="display" style="font-size:1.25rem">Your pickups</h3><span class="small muted">Live — updates as students act</span></div>
+      <p class="small muted" style="margin:-4px 0 12px">After you post, a nearby student driver claims it and this card shows their name and status. We don't email you yet — keep this page open, or check back. Questions: <a href="mailto:hello@crumbless.org" style="color:var(--leaf-600);font-weight:600">hello@crumbless.org</a>.</p>
       <ul class="list">${list}</ul>
     </div>
   </div>`;
@@ -1346,10 +1386,25 @@ async function doCancel(id){ try{ await Data.cancelPickup(id); toast('Pickup can
 /* a yellow padlock that dangles; only verified drivers (license on file) can claim */
 const PADLOCK_SVG = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3" stroke="#F2B441" stroke-width="2.6" stroke-linecap="round"/><rect x="4" y="10" width="16" height="11" rx="2.6" fill="#F2B441"/><circle cx="12" cy="15" r="1.7" fill="#0A2417"/><rect x="11.2" y="15.4" width="1.6" height="3.4" rx="0.8" fill="#0A2417"/></svg>';
 function acctRoleOf(u){
-  if(isCurrent(u) && CURRENT_PROFILE) return roleFromProfile(CURRENT_PROFILE);   // server truth
+  // Only trust the cached profile if it actually belongs to this user — a stale
+  // profile from a previous session must never decide someone's role.
+  if(isCurrent(u) && CURRENT_PROFILE && CURRENT_PROFILE.id===u.id) return roleFromProfile(CURRENT_PROFILE);
   return u ? ((u.user_metadata&&u.user_metadata.role)||u.role||'driver') : null;
 }
 function canDrive(){ const u=CURRENT_USER; if(!u) return false; const r=acctRoleOf(u); if(r==='admin') return true; return r==='driver' && isApproved(u); }
+/* Why can't this person claim? Never show a login box to someone already logged in. */
+function claimGate(){
+  if(canDrive()) return null;
+  if(!CURRENT_USER) return { label:'Log in to claim', title:'Log in as a driver to claim routes', fn:"openAuth('login')" };
+  const r=acctRoleOf(CURRENT_USER);
+  if(r==='business') return { label:'Businesses don’t claim', title:'This is a business account — businesses post food, students drive it', fn:"toast('Business accounts post food. Drivers claim routes.')" };
+  return { label:'Add your licence to claim', title:'Upload your driver’s licence to claim routes', fn:"startLicenseUpload()" };
+}
+/* Take an unlicensed driver somewhere useful instead of a dead end. */
+function startLicenseUpload(){
+  toast('Add your driver’s licence to start claiming routes.');
+  openDashboard();
+}
 
 /* choose which side of the demo to show based on who's logged in:
    logged-out or admin -> both (toggle visible); driver -> student only; business -> business only */
@@ -1370,7 +1425,9 @@ function applyDemoModeForUser(){
 async function renderStu(){
   const open=await Data.listOpen();
   const active=await Data.listMyActive();
-  const {total,history}=await Data.studentHours();
+  const {total,verifiedTotal,history}=await Data.studentHours();
+  const vTotal = (typeof verifiedTotal==='number') ? verifiedTotal : total;
+  const demoTotal = Math.round((total-vTotal)*100)/100;
 
   const activeHtml = active.length? `<div><h3 class="display" style="font-size:1.25rem;margin-bottom:12px">Your active pickup</h3><ul class="list">`+active.map(p=>`
     <li class="card row-item" style="border-color:rgba(30,142,78,.3)">
@@ -1394,9 +1451,9 @@ async function renderStu(){
       <div class="between"><div><p style="font-weight:700">${esc(p.food)}</p><p class="small muted">${esc(p.businessName)}</p></div><span class="leafnum small">+${p.hoursCredit}h</span></div>
       <div class="mt12" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${catChip(p.category)}<span class="small muted">${esc(p.quantity)} · ${esc(p.pickupWindow)}${p.distanceMiles?(' · '+p.distanceMiles+' mi'):''}</span></div>
       <div class="small muted mt8">→ ${esc(siteName(p.dropoffSiteId))}</div>
-      ${canDrive()
-        ? `<button class="btn btn-leaf btn-sm mt12" style="width:100%;justify-content:center" onclick="doClaim('${p.id}')">Claim this route</button>`
-        : `<button class="claim-locked" onclick="openAuth('login')" title="Sign in as a verified driver to claim routes"><span>Claim this route</span><span class="padlock">${PADLOCK_SVG}</span></button>`}
+      ${(()=>{ const g=claimGate(); return g
+        ? `<button class="claim-locked" onclick="${g.fn}" title="${esc(g.title)}"><span>${esc(g.label)}</span><span class="padlock">${PADLOCK_SVG}</span></button>`
+        : `<button class="btn btn-leaf btn-sm mt12" style="width:100%;justify-content:center" onclick="doClaim('${p.id}')">Claim this route</button>`; })()}
     </li>`).join('') : `<div class="empty">No open routes right now. Switch to the business side and post some surplus food to see one appear here.</div>`;
 
   const histHtml = history.length? history.map(h=>`<li class="between" style="border-bottom:1px solid var(--line);padding-bottom:8px"><span class="small muted">${new Date(h.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})} · ${esc(h.food)} → ${esc(h.shelter)}</span><span class="leafnum small">+${h.hours}h</span></li>`).join('') : `<p class="small muted">No deliveries logged yet. Claim a route and complete it to earn verified hours.</p>`;
@@ -1413,8 +1470,8 @@ async function renderStu(){
     <aside>
       <div class="hcard">
         <p class="eyebrow" style="color:var(--sprout)">Your verified hours</p>
-        <p class="total">${total}<span style="font-size:1.5rem;color:rgba(251,253,248,.7)">h</span></p>
-        <p class="small" style="color:rgba(251,253,248,.7);margin-top:4px">Exportable for college, scholarships &amp; NHS.</p>
+        <p class="total">${vTotal}<span style="font-size:1.5rem;color:rgba(251,253,248,.7)">h</span></p>
+        <p class="small" style="color:rgba(251,253,248,.7);margin-top:4px">${demoTotal>0?('+'+demoTotal+'h demo data, not counted.'):'Confirmed with the shelter\'s code at drop-off.'}</p>
         ${history.length
           ? `<button class="btn btn-sm mt16" style="width:100%;justify-content:center;background:var(--sprout);color:var(--ink)" onclick="exportHours()">Export summary for school</button>`
           : `<button class="btn btn-sm mt16 btn-locked" style="width:100%;justify-content:center" onclick="exportHours()" title="Unlocks after your first verified delivery">🔒 Export locked — no deliveries yet</button>`}
@@ -1437,19 +1494,29 @@ async function doDelivered(id,h,codeHint){
   try{ await Data.markDelivered(id, code); toast('Delivered! +'+h+' verified hours logged.', true); }catch(e){ toast(e.message);} await render();
 }
 async function exportHours(){
-  const {total,history}=await Data.studentHours();
+  const {total,verifiedTotal,history}=await Data.studentHours();
   if(!history.length){ toast("You'll be able to export once you complete your first verified delivery."); return; }
   const who = live() ? (userName(CURRENT_USER)||'Student') : STUDENT.name;
   const slug = (who.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'student');
-  const lines = history.map(h=>`  ${new Date(h.date).toLocaleDateString('en-US')}  ·  ${h.food} → ${h.shelter}  ·  +${h.hours}h`);
+  const anyDemo = history.some(h=>h.demo);
+  const vTotal = (typeof verifiedTotal==='number') ? verifiedTotal : total;
+  const lines = history.map(h=>`  ${new Date(h.date).toLocaleDateString('en-US')}  ·  ${h.food} → ${h.shelter}  ·  +${h.hours}h${h.demo?'   [DEMO — NOT VERIFIED]':''}`);
   const body=[
-    'CRUMBLESS — VERIFIED SERVICE HOURS','==================================','',
+    'CRUMBLESS — SERVICE HOURS RECORD','================================','',
+    ...(anyDemo?[
+      '*** THIS RECORD CONTAINS DEMO DATA — DO NOT SUBMIT TO A SCHOOL ***',
+      'Crumbless is a pilot. Entries marked [DEMO — NOT VERIFIED] are sample',
+      'data generated to demonstrate the app. They are NOT real deliveries and',
+      'must not be counted as service hours.',''
+    ]:[]),
     'Student:   '+who,'Generated: '+new Date().toLocaleString('en-US'),
-    'Total verified hours: '+total,'','Deliveries:',
+    'Verified hours (shelter-confirmed): '+vTotal,
+    ...(anyDemo?['Demo hours (not verified):         '+(Math.round((total-vTotal)*100)/100)]:[]),
+    '','Deliveries:',
     ...lines,'',
-    'Each entry represents a completed food-rescue delivery from a Maryland',
-    'business to a local shelter, tracked from claim to drop-off.','',
-    'Verified by Crumbless · crumbless.org'
+    'A verified entry is a completed food-rescue delivery from a Maryland business',
+    'to a local shelter, confirmed with the shelter\'s own code at drop-off.','',
+    'Crumbless · crumbless.org'
   ].join('\n');
   const blob=new Blob([body],{type:'text/plain'}); const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download='crumbless-service-hours-'+slug+'.txt';
