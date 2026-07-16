@@ -29,7 +29,10 @@ alter view public.hours_entries set (security_invoker = on);
 create or replace function public.profiles_guard()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  if not public.is_admin() then
+  -- Only police logged-in browser users. auth.uid() is NULL for the service role /
+  -- SQL editor (trusted), and anon can never reach this because RLS blocks the
+  -- update first. Without this NULL check the trigger also blocks our own backfill.
+  if auth.uid() is not null and not public.is_admin() then
     new.role   := old.role;
     new.status := old.status;
   end if;
@@ -93,7 +96,7 @@ begin
   on conflict (id) do nothing;
   return new;
 end $$;
-update public.profiles set status = 'approved' where status = 'pending';
+update public.profiles set status = 'approved' where status <> 'approved';
 
 create or replace function public.claim_pickup(p_id uuid)
 returns public.pickups language plpgsql security definer set search_path = public as $$
