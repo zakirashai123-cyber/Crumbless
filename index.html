@@ -989,8 +989,8 @@ async function openDashboard(){
   document.getElementById('dashHours').textContent = vHrs.toFixed(1);
   document.getElementById('dashHoursBar').style.width = Math.min(100,(vHrs/goal)*100)+'%';
   document.getElementById('dashHoursNote').textContent = demoHrs>0
-    ? vHrs.toFixed(0)+' of '+goal+' hours to your next badge · +'+demoHrs+'h demo (not counted)'
-    : vHrs.toFixed(0)+' of '+goal+' hours to your next badge';
+    ? vHrs+' of '+goal+' hours to your next badge · +'+demoHrs+'h demo (not counted)'
+    : vHrs+' of '+goal+' hours to your next badge';
   document.getElementById('dashSince').textContent = u.created_at ? new Date(u.created_at).toLocaleDateString('en-US',{month:'long',year:'numeric'}) : 'Today';
   renderLicenseCard(u, role, lic);
   renderDashHistory(hist);
