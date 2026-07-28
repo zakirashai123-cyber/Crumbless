@@ -481,13 +481,13 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
         <div class="dash-card-head"><span class="dash-ico" id="dashRoleIco"></span><p class="dash-label">Role</p></div>
         <p class="dash-value" id="dashRole">Student Driver</p>
       </div>
-      <div class="dash-card" data-accent="sprout">
+      <div class="dash-card" data-accent="sprout" id="dashHoursCard">
         <div class="dash-card-head"><span class="dash-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2" stroke-linecap="round"/></svg></span><p class="dash-label">Verified service hours</p></div>
         <p class="dash-value mono" id="dashHours">0.0</p>
         <div class="progress-track"><div class="progress-fill" id="dashHoursBar" style="width:0%"></div></div>
         <p class="muted small" id="dashHoursNote" style="margin-top:8px">0 of 10 hours to your next badge</p>
       </div>
-      <div class="dash-card" data-accent="honey">
+      <div class="dash-card" data-accent="honey" id="dashLicenseCard">
         <div class="dash-card-head"><span class="dash-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M13 10h5M13 14h5M5 15.5c.4-1.3 1.6-2 3-2s2.6.7 3 2" stroke-linecap="round"/></svg></span><p class="dash-label">Driver's license</p></div>
         <div id="dashLicenseBody"><p class="dash-value">&mdash;</p></div>
       </div>
@@ -511,7 +511,7 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
       </div>
     </div>
 
-    <div class="dash-panel">
+    <div class="dash-panel" id="dashDeliveriesPanel">
       <div class="between"><p class="dash-label">Your deliveries</p><button class="btn btn-ghost btn-sm" onclick="exportHours()">Export hours &darr;</button></div>
       <ul class="leaderboard" id="dashHistory"></ul>
     </div>
@@ -895,6 +895,7 @@ const DEMO_TRIPS = [
 ];
 async function ensureDemoDeliveries(){
   if(!live()) return;
+  if(acctRoleOf(CURRENT_USER)!=='driver') return;   // only drivers make deliveries
   try{
     // preferred: bounded server-side demo seed (security.sql). Falls back to a
     // direct insert only until security.sql is run.
@@ -976,24 +977,34 @@ async function openDashboard(){
   if(!u){ openAuth('login'); return; }
   if(supaEnabled && supa){ try { const { data } = await supa.auth.getUser(); if(data && data.user){ u = data.user; CURRENT_USER = u; } } catch(e){} await loadProfile(); }
   const name = userName(u), role = acctRoleOf(u), lic = (u.user_metadata&&u.user_metadata.license_path);
+  const isDriver = role==='driver';   // service hours, deliveries and licence are driver-only
   document.getElementById('dashAvatar').textContent = (name||'?').trim()[0].toUpperCase();
   document.getElementById('dashName').textContent = 'Welcome, '+name.split(' ')[0];
   document.getElementById('dashEmail').textContent = u.email||'';
-  document.getElementById('dashApproved').style.display = isApproved(u) ? 'inline-grid' : 'none';
+  // the "verified" check only means an approved driver — never show it for a business (no business verification exists)
+  document.getElementById('dashApproved').style.display = (isDriver && isApproved(u)) ? 'inline-grid' : 'none';
   document.getElementById('dashRole').textContent = role==='admin'?'Administrator':(role==='business'?'Business':'Student Driver');
   document.getElementById('dashRoleIco').innerHTML = role==='business'?ICON_STORE:(role==='admin'?ICON_SHIELD:ICON_CAR);
-  await ensureDemoDeliveries();
-  let hrs=0.0, vHrs=0.0; const goal=10; let hist=[];
-  if(live()){ try{ const {total,verifiedTotal,history}=await Data.studentHours(); hrs=total||0; vHrs=(typeof verifiedTotal==='number'?verifiedTotal:total)||0; hist=history||[]; }catch(e){} }
-  const demoHrs = Math.round((hrs-vHrs)*100)/100;
-  document.getElementById('dashHours').textContent = vHrs.toFixed(1);
-  document.getElementById('dashHoursBar').style.width = Math.min(100,(vHrs/goal)*100)+'%';
-  document.getElementById('dashHoursNote').textContent = demoHrs>0
-    ? vHrs+' of '+goal+' hours to your next badge · +'+demoHrs+'h demo (not counted)'
-    : vHrs+' of '+goal+' hours to your next badge';
+
+  // Driver-only sections: a business donates food, it doesn't earn service hours or make deliveries.
+  document.getElementById('dashHoursCard').style.display = isDriver ? '' : 'none';
+  document.getElementById('dashLicenseCard').style.display = isDriver ? '' : 'none';
+  document.getElementById('dashDeliveriesPanel').style.display = isDriver ? '' : 'none';
+
+  if(isDriver){
+    await ensureDemoDeliveries();
+    let hrs=0.0, vHrs=0.0; const goal=10; let hist=[];
+    if(live()){ try{ const {total,verifiedTotal,history}=await Data.studentHours(); hrs=total||0; vHrs=(typeof verifiedTotal==='number'?verifiedTotal:total)||0; hist=history||[]; }catch(e){} }
+    const demoHrs = Math.round((hrs-vHrs)*100)/100;
+    document.getElementById('dashHours').textContent = vHrs.toFixed(1);
+    document.getElementById('dashHoursBar').style.width = Math.min(100,(vHrs/goal)*100)+'%';
+    document.getElementById('dashHoursNote').textContent = demoHrs>0
+      ? vHrs+' of '+goal+' hours to your next badge · +'+demoHrs+'h demo (not counted)'
+      : vHrs+' of '+goal+' hours to your next badge';
+    renderDashHistory(hist);
+  }
   document.getElementById('dashSince').textContent = u.created_at ? new Date(u.created_at).toLocaleDateString('en-US',{month:'long',year:'numeric'}) : 'Today';
   renderLicenseCard(u, role, lic);
-  renderDashHistory(hist);
   document.getElementById('dashOverlay').classList.add('open');
   window.scrollTo(0,0);
 }

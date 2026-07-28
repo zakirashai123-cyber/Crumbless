@@ -96,18 +96,24 @@ grant execute on function public.can_drive(uuid) to authenticated;
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.profiles (id, role, name, email, status)
+  insert into public.profiles (id, role, name, email, status, business_name)
   values (
     new.id,
     public.role_from_text(new.raw_user_meta_data->>'role'),
     coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', ''),
     coalesce(new.email, ''),
-    'approved'
+    'approved',
+    new.raw_user_meta_data->>'business_name'
   )
   on conflict (id) do nothing;
   return new;
 end $$;
 update public.profiles set status = 'approved' where status <> 'approved';
+-- backfill business_name from auth metadata for accounts created before this
+update public.profiles p set business_name = u.raw_user_meta_data->>'business_name'
+  from auth.users u
+ where u.id = p.id and p.business_name is null
+   and coalesce(u.raw_user_meta_data->>'business_name','') <> '';
 
 create or replace function public.claim_pickup(p_id uuid)
 returns public.pickups language plpgsql security definer set search_path = public as $$
@@ -192,6 +198,8 @@ create or replace function public.seed_demo_deliveries()
 returns void language plpgsql security definer set search_path = public as $$
 declare have int; site_id uuid; nm text; i int;
 begin
+  -- only student drivers make deliveries; never seed a business/admin account
+  if not exists(select 1 from public.profiles where id=auth.uid() and role='student') then return; end if;
   select count(*) into have from public.pickups where student_id=auth.uid() and status='delivered';
   if have >= 2 then return; end if;
   select id into site_id from public.dropoff_sites where active order by name limit 1;
