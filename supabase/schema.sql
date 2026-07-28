@@ -140,7 +140,7 @@ create or replace view public.hours_entries as
     p.student_id                      as student_id,
     p.food                            as food,
     p.business_name                   as business_name,
-    coalesce(d.name, 'Shelter')       as dropoff_site_name,
+    coalesce(d.name, 'Food bank')       as dropoff_site_name,
     p.created_at                      as delivered_at,
     p.hours_credit                    as hours
   from public.pickups p

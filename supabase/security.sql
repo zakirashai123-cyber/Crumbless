@@ -50,7 +50,7 @@ create policy profile_admin_update on public.profiles
   for update using (public.is_admin());
 
 -- ============================================================================
--- 4) Shelter verification code — this is what makes a delivery "verified".
+-- 4) Food bank verification code — this is what makes a delivery "verified".
 -- ============================================================================
 alter table public.dropoff_sites add column if not exists code text;
 update public.dropoff_sites
@@ -179,7 +179,7 @@ create view public.hours_entries as
     p.student_id                as student_id,
     p.food                      as food,
     p.business_name             as business_name,
-    coalesce(d.name, 'Shelter') as dropoff_site_name,
+    coalesce(d.name, 'Food bank') as dropoff_site_name,
     p.created_at                as delivered_at,
     p.hours_credit              as hours,
     p.is_demo                   as is_demo

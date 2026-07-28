@@ -348,7 +348,7 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
 
   <!-- PARTNERS -->
   <div class="partners"><div class="wrap row">
-    <span class="name">Pilot — no partner shelters signed yet</span>
+    <span class="name">Pilot — no partner food banks signed yet</span>
   </div></div>
 
   <!-- HOW -->
@@ -372,7 +372,7 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
       <div class="reveal"><p class="eyebrow">Who it helps</p><h2 class="display h2" style="margin-top:12px">One trip, three wins.</h2></div>
       <div class="grid3">
         <div class="card feat reveal"><h3>Businesses</h3><p>Free, tax-deductible pickups, less waste, and a clean record of meals donated.</p></div>
-        <div class="card feat reveal"><h3>Shelters &amp; food banks</h3><p>Reliable delivery to the door — not just a match and a hope someone shows up.</p></div>
+        <div class="card feat reveal"><h3>Food banks</h3><p>Reliable delivery to the door — not just a match and a hope someone shows up.</p></div>
         <div class="card feat reveal"><h3>Students</h3><p>Verified, exportable service hours for college, scholarships, and NHS.</p></div>
       </div>
     </div>
@@ -383,7 +383,7 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
     <div class="wrap">
       <div class="reveal"><p class="eyebrow">Why Crumbless is different</p><h2 class="display h2" style="margin-top:12px">Plenty of apps match. Almost none deliver.</h2></div>
       <div class="grid3">
-        <div class="card feat reveal"><p class="num">01</p><h3>We move the food</h3><p>Other apps match a donor to a shelter and leave the driving to chance. Our student drivers are the delivery layer — the food actually gets there.</p></div>
+        <div class="card feat reveal"><p class="num">01</p><h3>We move the food</h3><p>Other apps match a donor to a food bank and leave the driving to chance. Our student drivers are the delivery layer — the food actually gets there.</p></div>
         <div class="card feat reveal"><p class="num">02</p><h3>Mission-driven drivers</h3><p>Students earning service hours, not paid gig workers. That means near-zero cost and a self-replenishing pool of motivated drivers.</p></div>
         <div class="card feat reveal"><p class="num">03</p><h3>Verified hours, built in</h3><p>The only platform that turns each delivery into logged, exportable service hours — valuable to the student and the schools that trust them.</p></div>
       </div>
@@ -429,7 +429,7 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
       <div class="reveal"><p class="eyebrow">Safety &amp; trust</p><h2 class="display h2" style="margin-top:12px">Built for the questions schools and parents ask first.</h2></div>
       <div class="grid2">
         <div class="card feat reveal"><h3 style="font-size:1.1rem">Licence on file</h3><p class="small">Every driver uploads a driver's licence at sign-up. It's scanned in your browser to check it reads as a real licence before we accept it — a screening step, not identity verification.</p></div>
-        <div class="card feat reveal"><h3 style="font-size:1.1rem">Verified by the shelter</h3><p class="small">Hours are only credited when the driver enters the shelter's code at drop-off. That check runs on our server, so hours can't be self-awarded.</p></div>
+        <div class="card feat reveal"><h3 style="font-size:1.1rem">Verified by the food bank</h3><p class="small">Hours are only credited when the driver enters the food bank's code at drop-off. That check runs on our server, so hours can't be self-awarded.</p></div>
         <div class="card feat reveal"><h3 style="font-size:1.1rem">Food safety</h3><p class="small">Simple handling guidance appears at pickup, and category tags flag anything that needs refrigeration.</p></div>
         <div class="card feat reveal"><h3 style="font-size:1.1rem">Donor liability</h3><p class="small">Donations are generally protected under the federal Good Samaritan Food Donation Act. Not legal advice — confirm specifics with a lawyer.</p></div>
         <div class="card feat reveal"><h3 style="font-size:1.1rem">Not built yet — being honest</h3><p class="small">Guardian consent, date of birth, proof of insurance, and photo capture at drop-off are <strong>not implemented</strong>. They're required before any school pilot, and we won't claim them until they exist.</p></div>
@@ -452,7 +452,7 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
       <p class="small" style="margin-top:16px;color:rgba(251,253,248,.5)">A Curious Cardinals project · Made in Maryland</p>
     </div>
     <div><h4>Product</h4><ul><li><a href="#how">How it works</a></li><li><a href="#why">Why Crumbless</a></li><li><a href="#demo">Live demo</a></li></ul></div>
-    <div><h4>Get involved</h4><ul><li><a href="#demo" onclick="setRole('business')">Donate surplus food</a></li><li><a href="#demo" onclick="setRole('student')">Drive &amp; earn hours</a></li><li><a href="#demo">Partner a shelter</a></li><li><a href="mailto:hello@crumbless.org">Contact us</a></li></ul></div>
+    <div><h4>Get involved</h4><ul><li><a href="#demo" onclick="setRole('business')">Donate surplus food</a></li><li><a href="#demo" onclick="setRole('student')">Drive &amp; earn hours</a></li><li><a href="#demo">Partner a food bank</a></li><li><a href="mailto:hello@crumbless.org">Contact us</a></li></ul></div>
     <div><h4>Legal</h4><ul><li><a href="#" onclick="openLegal('terms');return false">Terms of Service</a></li><li><a href="#" onclick="openLegal('privacy');return false">Privacy Policy</a></li></ul></div>
     <div><h4>Support</h4><ul><li><a href="mailto:hello@crumbless.org">hello@crumbless.org</a></li><li><span class="small" style="color:rgba(251,253,248,.72)">We reply within a day.</span></li></ul></div>
   </div>
@@ -637,7 +637,7 @@ const store = {
 let SITES = store.sites.slice();
 let SITE_MAP = Object.fromEntries(SITES.map(s=>[s.id,s.name]));
 let SITE_CODE = {};
-const siteName = id => SITE_MAP[id] || 'Shelter';
+const siteName = id => SITE_MAP[id] || 'Food bank';
 const DEMO_BIZ = 'biz-folly';
 
 const DB = {
@@ -1160,7 +1160,7 @@ function closeAuth(){ document.getElementById('authModal').classList.remove('ope
 /* ---- legal modal (Terms / Privacy) ---- */
 const LEGAL = {
   terms: { title:'Terms of Service', html:`
-    <p>Welcome to Crumbless. By creating an account or using this website (the "Service"), you agree to these Terms. Crumbless connects Maryland businesses that have surplus food with volunteer student drivers who deliver that food to local shelters, and records the service hours earned.</p>
+    <p>Welcome to Crumbless. By creating an account or using this website (the "Service"), you agree to these Terms. Crumbless connects Maryland businesses that have surplus food with volunteer student drivers who deliver that food to local food banks, and records the service hours earned.</p>
     <h3>1. Who can use Crumbless</h3>
     <p>You must provide accurate information when you sign up. Student drivers must hold a valid driver's license and carry the insurance required by law to drive. If you are under 18, you may use Crumbless only with the permission and supervision of a parent or guardian.</p>
     <h3>2. Student drivers &amp; service hours</h3>
@@ -1356,7 +1356,7 @@ async function renderBiz(){
         </div>
         <label class="field"><span>Pickup address</span><input class="inp" id="fAddr" placeholder="Street, city, MD" required></label>
         <label class="field"><span>Send it to</span><select class="inp" id="fSite">${opts}</select>
-          <span class="lic-hint">Pilot: these are sample drop-off sites, not signed partner shelters. Don't send real food yet.</span></label>
+          <span class="lic-hint">Pilot: these are sample drop-off sites, not signed partner food banks. Don't send real food yet.</span></label>
         <button class="btn btn-leaf" type="submit" style="width:100%;justify-content:center">Post surplus food →</button>
         <p class="legalnote">Food donations are generally protected under the federal <strong style="color:var(--text)">Good Samaritan Food Donation Act</strong>. This isn't legal advice — confirm specifics with a lawyer.</p>
       </div>
@@ -1443,7 +1443,7 @@ async function renderStu(){
           ? `<button class="btn btn-sm" style="background:var(--forest);color:var(--cream)" onclick="doPicked('${p.id}')">Mark picked up</button>`
           : `<button class="btn btn-sm btn-leaf" onclick="doDelivered('${p.id}',${p.hoursCredit},'${esc(SITE_CODE[p.dropoffSiteId]||'')}')">Mark delivered</button>`}
       </div>
-      ${p.status==='in_transit' && SITE_CODE[p.dropoffSiteId] ? `<p class="small muted" style="margin-top:8px">Shelter code <strong style="font-family:var(--mono)">${esc(SITE_CODE[p.dropoffSiteId])}</strong> confirms the drop-off. (In the demo it's shown here; in real use the shelter gives it to the driver.)</p>` : ''}
+      ${p.status==='in_transit' && SITE_CODE[p.dropoffSiteId] ? `<p class="small muted" style="margin-top:8px">Food bank code <strong style="font-family:var(--mono)">${esc(SITE_CODE[p.dropoffSiteId])}</strong> confirms the drop-off. (In the demo it's shown here; in real use the food bank gives it to the driver.)</p>` : ''}
     </li>`).join('')+`</ul></div>` : '';
 
   const openHtml = open.length? open.map(p=>`
@@ -1471,7 +1471,7 @@ async function renderStu(){
       <div class="hcard">
         <p class="eyebrow" style="color:var(--sprout)">Your verified hours</p>
         <p class="total">${vTotal}<span style="font-size:1.5rem;color:rgba(251,253,248,.7)">h</span></p>
-        <p class="small" style="color:rgba(251,253,248,.7);margin-top:4px">${demoTotal>0?('+'+demoTotal+'h demo data, not counted.'):'Confirmed with the shelter\'s code at drop-off.'}</p>
+        <p class="small" style="color:rgba(251,253,248,.7);margin-top:4px">${demoTotal>0?('+'+demoTotal+'h demo data, not counted.'):'Confirmed with the food bank\'s code at drop-off.'}</p>
         ${history.length
           ? `<button class="btn btn-sm mt16" style="width:100%;justify-content:center;background:var(--sprout);color:var(--ink)" onclick="exportHours()">Export summary for school</button>`
           : `<button class="btn btn-sm mt16 btn-locked" style="width:100%;justify-content:center" onclick="exportHours()" title="Unlocks after your first verified delivery">🔒 Export locked — no deliveries yet</button>`}
@@ -1488,7 +1488,7 @@ async function doPicked(id){ try{ await Data.markPickedUp(id); toast('Picked up 
 async function doDelivered(id,h,codeHint){
   let code='';
   if(live() && codeHint){
-    code = prompt('Enter the shelter code to confirm this delivery (demo code: '+codeHint+'):', codeHint);
+    code = prompt('Enter the food bank code to confirm this delivery (demo code: '+codeHint+'):', codeHint);
     if(code===null) return; // driver cancelled
   }
   try{ await Data.markDelivered(id, code); toast('Delivered! +'+h+' verified hours logged.', true); }catch(e){ toast(e.message);} await render();
@@ -1510,12 +1510,12 @@ async function exportHours(){
       'must not be counted as service hours.',''
     ]:[]),
     'Student:   '+who,'Generated: '+new Date().toLocaleString('en-US'),
-    'Verified hours (shelter-confirmed): '+vTotal,
+    'Verified hours (food-bank-confirmed): '+vTotal,
     ...(anyDemo?['Demo hours (not verified):         '+(Math.round((total-vTotal)*100)/100)]:[]),
     '','Deliveries:',
     ...lines,'',
     'A verified entry is a completed food-rescue delivery from a Maryland business',
-    'to a local shelter, confirmed with the shelter\'s own code at drop-off.','',
+    'to a local food bank, confirmed with the food bank\'s own code at drop-off.','',
     'Crumbless · crumbless.org'
   ].join('\n');
   const blob=new Blob([body],{type:'text/plain'}); const url=URL.createObjectURL(blob);
@@ -1538,7 +1538,7 @@ const RELAY=[
   ['A business posts surplus food',"A café, grocer, or caterer lists what's left over and when it can be picked up — in under a minute."],
   ['A student claims the route','A vetted student driver near the business claims the trip. Each trip is worth verified service hours.'],
   ['Pick up at the business','The student arrives in the pickup window, grabs the food, and snaps an optional photo for the record.'],
-  ['Deliver to a shelter','They drive it straight to a partnered Maryland shelter or food bank — the part other apps leave to chance.'],
+  ['Deliver to a food bank','They drive it straight to a partnered Maryland food bank — the part other apps leave to chance.'],
   ['Hours logged automatically','Delivery confirmed, hours credited and added to an exportable record. No forms, no chasing signatures.']
 ];
 document.getElementById('relaySteps').innerHTML = RELAY.map((s,i)=>`<li id="step${i}"><span class="knob">${i+1}</span><h3>${s[0]}</h3><p>${s[1]}</p></li>`).join('');
