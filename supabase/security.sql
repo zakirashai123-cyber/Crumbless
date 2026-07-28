@@ -81,6 +81,9 @@ create policy pickups_update on public.pickups
   for update using (business_id = auth.uid() and status = 'open')
   with check (business_id = auth.uid() and status in ('open','cancelled'));
 
+-- Business phone travels with the pickup so the claiming driver can reach them.
+alter table public.pickups add column if not exists business_phone text;
+
 -- Who may drive. Drivers are AUTO-APPROVED — the in-browser AI license scan at
 -- upload time is the screening gate, so there is no manual approval queue.
 -- (Note: a browser-side scan is a screen, not fraud-proof. The protection that
@@ -96,24 +99,27 @@ grant execute on function public.can_drive(uuid) to authenticated;
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.profiles (id, role, name, email, status, business_name)
+  insert into public.profiles (id, role, name, email, status, business_name, phone)
   values (
     new.id,
     public.role_from_text(new.raw_user_meta_data->>'role'),
     coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', ''),
     coalesce(new.email, ''),
     'approved',
-    new.raw_user_meta_data->>'business_name'
+    new.raw_user_meta_data->>'business_name',
+    new.raw_user_meta_data->>'phone'
   )
   on conflict (id) do nothing;
   return new;
 end $$;
 update public.profiles set status = 'approved' where status <> 'approved';
--- backfill business_name from auth metadata for accounts created before this
-update public.profiles p set business_name = u.raw_user_meta_data->>'business_name'
+-- backfill business_name / phone from auth metadata for accounts created before this
+update public.profiles p set
+    business_name = coalesce(p.business_name, u.raw_user_meta_data->>'business_name'),
+    phone         = coalesce(p.phone,         u.raw_user_meta_data->>'phone')
   from auth.users u
- where u.id = p.id and p.business_name is null
-   and coalesce(u.raw_user_meta_data->>'business_name','') <> '';
+ where u.id = p.id
+   and (p.business_name is null or p.phone is null);
 
 create or replace function public.claim_pickup(p_id uuid)
 returns public.pickups language plpgsql security definer set search_path = public as $$

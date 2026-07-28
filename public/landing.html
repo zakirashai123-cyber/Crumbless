@@ -497,6 +497,14 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
       </div>
     </div>
 
+    <div class="dash-panel" id="dashBizPanel" style="display:none">
+      <div class="between"><p class="dash-label">Your donations</p><span class="pill pill-soft" id="dashBizName"></span></div>
+      <div class="dash-grid" id="dashBizStats" style="margin-top:12px"></div>
+      <div class="dash-actions" style="margin-top:16px">
+        <button class="btn btn-leaf btn-sm" onclick="closeDashboard(); gotoDemo('business')">Post surplus food &rarr;</button>
+      </div>
+    </div>
+
     <div class="dash-panel">
       <button class="dash-expand" type="button" aria-expanded="false" aria-controls="dashDriversBody" onclick="toggleDrivers(this)">
         <p class="dash-label">Drivers near you</p>
@@ -548,6 +556,9 @@ input[type=file].inp{padding:8px 10px;font-size:.82rem;cursor:pointer}
         <input class="inp" id="authName" placeholder="Your name" autocomplete="name"></label>
       <label class="field" id="bizNameField" style="display:none"><span>Business name</span>
         <input class="inp" id="authBizName" placeholder="e.g. Maple Street Café" autocomplete="organization"></label>
+      <label class="field" id="bizPhoneField" style="display:none"><span>Business phone</span>
+        <input class="inp" id="authBizPhone" type="tel" placeholder="(555) 555-5555" autocomplete="tel">
+        <span class="lic-hint">So the driver can reach you at pickup. Shown only to the driver who claims your food.</span></label>
       <label class="field"><span>Email</span>
         <input class="inp" id="authEmail" type="email" placeholder="you@email.com" autocomplete="email" oninput="onAuthEmailInput()" required></label>
       <label class="field"><span>Password</span>
@@ -683,13 +694,14 @@ const DB = {
    ========================================================================= */
 function live(){ return !!(supaEnabled && supa && CURRENT_USER); }
 function businessNameOf(u){ const m=(u&&u.user_metadata)||{}; return m.business_name || userName(u) || 'A local business'; }
+function businessPhoneOf(u){ return (CURRENT_PROFILE&&CURRENT_PROFILE.phone) || ((u&&u.user_metadata&&u.user_metadata.phone)) || ''; }
 /* true when a Supabase RPC/function isn't there yet (i.e. security.sql not run) */
 function isMissingFn(err){ return !!err && (err.code==='PGRST202' || /could not find the function|function .* does not exist/i.test(err.message||'')); }
 function fromRow(r){ return {
   id:r.id, businessId:r.business_id, businessName:r.business_name, food:r.food, category:r.category,
   quantity:r.quantity, pickupWindow:r.pickup_window, pickupAddress:r.pickup_address, dropoffSiteId:r.dropoff_site_id,
   status:r.status, hoursCredit:Number(r.hours_credit), createdAt:r.created_at?new Date(r.created_at).getTime():Date.now(),
-  studentId:r.student_id, studentName:r.student_name, distanceMiles:r.distance_miles
+  studentId:r.student_id, studentName:r.student_name, distanceMiles:r.distance_miles, businessPhone:r.business_phone
 }; }
 
 const Data = {
@@ -718,7 +730,10 @@ const Data = {
     const row={ business_id:CURRENT_USER.id, business_name:businessNameOf(CURRENT_USER), food:inp.food, category:inp.category,
       quantity:inp.quantity, pickup_window:inp.pickupWindow, pickup_address:inp.pickupAddress||'', dropoff_site_id:inp.dropoffSiteId||null,
       status:'open', hours_credit:STANDARD_HOURS };
-    const { error } = await supa.from('pickups').insert(row); if(error) throw new Error(error.message);
+    const phone=businessPhoneOf(CURRENT_USER)||null;
+    let { error } = await supa.from('pickups').insert({ ...row, business_phone:phone });
+    if(error && /business_phone/.test(error.message||'')){ ({ error } = await supa.from('pickups').insert(row)); }  // column added by security.sql
+    if(error) throw new Error(error.message);
   },
   async cancelPickup(id){
     if(!live()) return DB.cancelPickup(id);
@@ -923,6 +938,25 @@ function renderDashHistory(history){
   el.innerHTML=history.slice(0,6).map(h=>`<li class="lb-row"><span class="lb-name">${esc(h.food)} <span class="muted small">&rarr; ${esc(h.shelter)}</span>${h.demo?' <span class="pill pill-soft" style="font-size:.6rem">demo</span>':''}</span><span class="lb-hours">+${h.hours}h</span></li>`).join('');
 }
 
+/* ---- business dashboard: their own donation activity ---- */
+async function renderBizPanel(role){
+  const panel=document.getElementById('dashBizPanel'); if(!panel) return;
+  if(role!=='business' || !live()){ panel.style.display='none'; return; }
+  panel.style.display='';
+  const m=(CURRENT_USER&&CURRENT_USER.user_metadata)||{};
+  const bn=(CURRENT_PROFILE&&CURRENT_PROFILE.business_name)||m.business_name||'';
+  const nameEl=document.getElementById('dashBizName');
+  nameEl.textContent=bn; nameEl.style.display=bn?'':'none';
+  let rows=[];
+  try{ const { data } = await supa.from('pickups').select('status,quantity').eq('business_id',CURRENT_USER.id); rows=data||[]; }catch(e){}
+  const cnt=s=>rows.filter(r=>r.status===s).length;
+  const open=cnt('open'), inprog=cnt('claimed')+cnt('in_transit'), delivered=cnt('delivered');
+  const meals=rows.filter(r=>r.status==='delivered').reduce((s,r)=>{ const mm=String(r.quantity||'').match(/\d+/); return s+(mm?parseInt(mm[0],10):0); },0);
+  const tile=(n,label)=>`<div class="dash-card" data-accent="leaf" style="padding:16px"><p class="dash-value mono">${n}</p><p class="dash-label" style="margin-top:2px">${label}</p></div>`;
+  document.getElementById('dashBizStats').innerHTML =
+    tile(open,'Awaiting a driver')+tile(inprog,'In progress')+tile(delivered,'Delivered')+tile(meals?('≈'+meals):'—','Meals moved');
+}
+
 async function renderLicenseCard(u, role, lic){
   const body=document.getElementById('dashLicenseBody'); if(!body) return;
   if(role==='admin'||role==='business'){ body.innerHTML='<p class="dash-value">Not required</p>'; return; }
@@ -1005,6 +1039,7 @@ async function openDashboard(){
   }
   document.getElementById('dashSince').textContent = u.created_at ? new Date(u.created_at).toLocaleDateString('en-US',{month:'long',year:'numeric'}) : 'Today';
   renderLicenseCard(u, role, lic);
+  await renderBizPanel(role);
   document.getElementById('dashOverlay').classList.add('open');
   window.scrollTo(0,0);
 }
@@ -1110,6 +1145,7 @@ function refreshLicenseVisibility(){
   document.getElementById('noLicenseRow').style.display = (signup && !isAdmin && isDriver) ? 'flex' : 'none';
   document.getElementById('licenseField').style.display = (signup && !isAdmin && isDriver && !noLic) ? 'block' : 'none';
   document.getElementById('bizNameField').style.display = (signup && !isAdmin && !isDriver) ? 'block' : 'none';
+  document.getElementById('bizPhoneField').style.display = (signup && !isAdmin && !isDriver) ? 'block' : 'none';
   document.getElementById('authName').required = signup;   // an account must have a name
 }
 function setSignupType(t){
@@ -1236,6 +1272,7 @@ async function submitAuth(e){
   e.preventDefault();
   const name=document.getElementById('authName').value.trim();
   const bizName=document.getElementById('authBizName').value.trim();
+  const bizPhone=document.getElementById('authBizPhone').value.trim();
   const email=document.getElementById('authEmail').value.trim().toLowerCase();
   const pw=document.getElementById('authPassword').value;
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ authError('Please enter a valid email address.'); return false; }
@@ -1260,7 +1297,7 @@ async function submitAuth(e){
 
   if(supaEnabled && supa){
     if(authMode==='signup'){
-      const {data,error}=await supa.auth.signUp({ email, password:pw, options:{ data:{ full_name: name||email.split('@')[0], role: acctRole, business_name: bizName||null } } });
+      const {data,error}=await supa.auth.signUp({ email, password:pw, options:{ data:{ full_name: name||email.split('@')[0], role: acctRole, business_name: bizName||null, phone: bizPhone||null } } });
       if(error){ authError(error.message); return false; }
       if(!data.session){ closeAuth(); toast('Almost there — check your email to confirm your account.', true); return false; }
       if(acctRole==='driver' && licenseFile){
@@ -1337,9 +1374,12 @@ function gotoDemo(r){
 /* ---------- business dashboard ---------- */
 const CATS=['Prepared','Produce','Bakery','Dairy','Packaged'];
 let formCat='Prepared';
+let BIZ_PICKUPS={};   // id -> pickup, so "Post again" can re-fill the form
+let PREFILL=null;     // values to drop into the post form on next render
 async function renderBiz(){
   const sites=SITES;
   const pickups=await Data.listForBusiness();
+  BIZ_PICKUPS=Object.fromEntries(pickups.map(p=>[p.id,p]));
   const opts=sites.map(s=>`<option value="${s.id}">${esc(s.name)} — ${esc(s.city)}</option>`).join('');
   const chips=CATS.map(c=>`<button type="button" class="chip ${c===formCat?'active':''}" onclick="formCat='${c}';renderBiz()">${c}</button>`).join('');
   const list = pickups.length? pickups.map(p=>`
@@ -1348,8 +1388,10 @@ async function renderBiz(){
       <div class="mt12" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${catChip(p.category)}<span class="small muted">→ ${esc(siteName(p.dropoffSiteId))}</span></div>
       <div class="between bt">
         <span class="small muted">${p.studentName?('Driver: <strong style="color:var(--text)">'+esc(p.studentName)+'</strong>'):(p.status==='cancelled'?'Cancelled — not collected':(p.status==='open'?'Waiting for a driver…':''))}</span>
-        ${p.status==='open'?`<button class="linkbtn" onclick="doCancel('${p.id}')">Cancel</button>`:''}
-        ${p.status==='delivered'?`<span class="leafnum small">+${p.hoursCredit}h logged</span>`:''}
+        <span style="display:flex;gap:12px;align-items:center">
+          ${p.status==='delivered'?`<span class="leafnum small">+${p.hoursCredit}h logged</span>`:''}
+          ${p.status==='open'?`<button class="linkbtn" onclick="doCancel('${p.id}')">Cancel</button>`:`<button class="linkbtn" onclick="postAgain('${p.id}')">Post again</button>`}
+        </span>
       </div>
     </li>`).join('') : `<div class="empty">No pickups yet. Post surplus food and it'll appear here for students to claim.</div>`;
 
@@ -1378,6 +1420,19 @@ async function renderBiz(){
       <ul class="list">${list}</ul>
     </div>
   </div>`;
+  if(PREFILL){
+    const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.value=v||''; };
+    set('fFood',PREFILL.food); set('fQty',PREFILL.quantity); set('fWin',PREFILL.pickupWindow); set('fAddr',PREFILL.pickupAddress);
+    if(PREFILL.dropoffSiteId){ const s=document.getElementById('fSite'); if(s) s.value=PREFILL.dropoffSiteId; }
+    PREFILL=null;
+  }
+}
+function postAgain(id){
+  const p=BIZ_PICKUPS[id]; if(!p) return;
+  PREFILL={ food:p.food, quantity:p.quantity, pickupWindow:p.pickupWindow, pickupAddress:p.pickupAddress, dropoffSiteId:p.dropoffSiteId };
+  formCat=p.category||'Prepared';
+  renderBiz().then(()=>{ const f=document.getElementById('fFood'); if(f){ f.scrollIntoView({behavior:'smooth',block:'center'}); f.focus(); } });
+  toast('Filled the form from that pickup — review and post.');
 }
 async function doPost(e){
   e.preventDefault();
@@ -1447,6 +1502,7 @@ async function renderStu(){
         <div><p class="small muted">Pick up at</p><p class="small" style="font-weight:600">${esc(p.pickupAddress)}</p></div>
         <div><p class="small muted">Drop off at</p><p class="small" style="font-weight:600">${esc(siteName(p.dropoffSiteId))}</p></div>
       </div>
+      ${p.businessPhone?`<p class="small mt8"><span class="muted">Reach the business:</span> <a href="tel:${esc(p.businessPhone)}" style="color:var(--leaf-600);font-weight:700">${esc(p.businessPhone)}</a></p>`:''}
       <p class="legalnote">Food safety: keep items at safe temperature, deliver promptly, and snap an optional photo at pickup &amp; drop-off for the record.</p>
       <div class="between bt">
         <span class="leafnum small">+${p.hoursCredit}h on delivery</span>
@@ -1494,7 +1550,9 @@ async function renderStu(){
     </aside>
   </div>`;
 }
-async function doClaim(id){ try{ await Data.claimPickup(id); toast('Route claimed — the business was notified.'); }catch(e){ toast(e.message);} await render(); }
+async function doClaim(id){ try{ await Data.claimPickup(id); toast('Route claimed. Pick up during the window.'); notifyClaim(id); }catch(e){ toast(e.message);} await render(); }
+/* fire-and-forget: emails the business (server route on Vercel). No-op on static hosting. */
+function notifyClaim(pickupId){ try{ fetch('/api/notify-claim',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pickupId})}).catch(()=>{}); }catch(e){} }
 async function doPicked(id){ try{ await Data.markPickedUp(id); toast('Picked up — food is in transit.'); }catch(e){ toast(e.message);} await render(); }
 async function doDelivered(id,h,codeHint){
   let code='';
