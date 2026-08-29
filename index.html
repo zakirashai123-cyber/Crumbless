@@ -988,7 +988,7 @@ async function dashUploadLicense(input){
     if(!user){ openAuth('login'); return; }
     toast('Scanning your license…');
     const scan = await scanLicense(file);
-    if(!scan.ok){ toast("That doesn't look like a driver's license — try a clearer photo."); return; }
+    if(!scan.ok){ toast(scan.fake ? "That looks like a sample/template ID, not a real licence." : "That doesn't look like a driver's license — try a clearer photo."); return; }
     toast('Uploading your license…');
     const path=await uploadLicense(user.id, file);
     const { error:upErr } = await supa.auth.updateUser({ data:{ license_path: path } });
@@ -1185,6 +1185,9 @@ async function scanLicense(file){
     await loadTesseract();
     const { data:{ text } } = await Tesseract.recognize(file, 'eng');
     const t=(text||'').toUpperCase();
+    // reject obvious fake-ID templates / specimens / watermarked downloads
+    const fake=/\bTEMPLATE\b|\bSPECIMEN\b|\bSAMPLE\b|NOT A (REAL|VALID|GOVERNMENT)|\bVOID\b|FACEID|FAKE\s*ID|NOVELTY|WWW\.|\.PM\b|\.COM\b|JOHN\s+DOE|JANE\s+DOE|0000TL0000000000|TL555555|00-00-0000|123456789|XXXXXX/;
+    if(fake.test(t)) return { ok:false, fake:true, reason:'looks like a sample/template ID', text };
     const checks=[
       /DRIVER/.test(t), /LICEN[SC]E/.test(t), /IDENTIFICATION|\bIDENT/.test(t),
       /DOB|DATE OF BIRTH|BIRTH/.test(t), /EXP\b|EXPIRES|EXPIRATION/.test(t),
@@ -1294,7 +1297,7 @@ async function submitAuth(e){
     authError(''); setAuthBusy(true, 'Scanning your license…');
     const scan = await scanLicense(licenseFile);
     setAuthBusy(false);
-    if(!scan.ok){ authError("That doesn't look like a driver's license. Please upload a clear, well-lit photo of the front of your license."); return false; }
+    if(!scan.ok){ authError(scan.fake ? "That looks like a sample or template ID, not a real licence. Please upload a photo of your own government-issued licence." : "That doesn't look like a driver's license. Please upload a clear, well-lit photo of the front of your license."); return false; }
   }
 
   if(supaEnabled && supa){
