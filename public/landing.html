@@ -1178,27 +1178,52 @@ function loadTesseract(){
   return _tessLoad;
 }
 const US_STATES=/ALABAMA|ALASKA|ARIZONA|ARKANSAS|CALIFORNIA|COLORADO|CONNECTICUT|DELAWARE|FLORIDA|GEORGIA|HAWAII|IDAHO|ILLINOIS|INDIANA|IOWA|KANSAS|KENTUCKY|LOUISIANA|MAINE|MARYLAND|MASSACHUSETTS|MICHIGAN|MINNESOTA|MISSISSIPPI|MISSOURI|MONTANA|NEBRASKA|NEVADA|HAMPSHIRE|JERSEY|MEXICO|\bNEW YORK\b|CAROLINA|DAKOTA|OHIO|OKLAHOMA|OREGON|PENNSYLVANIA|RHODE ISLAND|TENNESSEE|TEXAS|UTAH|VERMONT|VIRGINIA|WASHINGTON|WISCONSIN|WYOMING/;
+/* stronger, server-side vision check (Claude). Skips gracefully when the /api
+   route or ANTHROPIC key isn't there (e.g. GitHub Pages) — returns {configured:false}. */
+async function verifyLicenseServer(file){
+  try{
+    if(!file || file.type==='application/pdf' || /\.pdf$/i.test(file.name||'')) return { configured:false };
+    const dataUrl = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); });
+    const base64 = String(dataUrl).split(',')[1] || '';
+    const resp = await fetch('/api/verify-license', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ imageBase64:base64, mediaType:file.type||'image/jpeg' }) });
+    if(!resp.ok) return { configured:false };
+    return await resp.json();
+  }catch(e){ return { configured:false }; }
+}
 async function scanLicense(file){
-  // OCR only works on images; let PDFs through (can't render in-browser cheaply)
+  // OCR/vision only work on images; let PDFs through (can't render in-browser cheaply)
   if(!file || file.type==='application/pdf' || /\.pdf$/i.test(file.name||'')) return { ok:true, skipped:true };
+  // 1) fast in-browser OCR screen — catches obvious templates and wrong photos
+  let local;
   try{
     await loadTesseract();
     const { data:{ text } } = await Tesseract.recognize(file, 'eng');
     const t=(text||'').toUpperCase();
-    // reject obvious fake-ID templates / specimens / watermarked downloads
     const fake=/\bTEMPLATE\b|\bSPECIMEN\b|\bSAMPLE\b|NOT A (REAL|VALID|GOVERNMENT)|\bVOID\b|FACEID|FAKE\s*ID|NOVELTY|WWW\.|\.PM\b|\.COM\b|JOHN\s+DOE|JANE\s+DOE|0000TL0000000000|TL555555|00-00-0000|123456789|XXXXXX/;
-    if(fake.test(t)) return { ok:false, fake:true, reason:'looks like a sample/template ID', text };
-    const checks=[
-      /DRIVER/.test(t), /LICEN[SC]E/.test(t), /IDENTIFICATION|\bIDENT/.test(t),
-      /DOB|DATE OF BIRTH|BIRTH/.test(t), /EXP\b|EXPIRES|EXPIRATION/.test(t),
-      /\bCLASS\b/.test(t), /\bSEX\b|\bHGT\b|HEIGHT|\bEYES\b|\bWGT\b/.test(t),
-      /\bDL\b|LIC(?:ENSE)?\s*(?:NO|#|NUMBER)|\bID\b/.test(t),
-      US_STATES.test(t), /\b\d{2}[\/\-.]\d{2}[\/\-.]\d{2,4}\b/.test(t)
-    ];
-    const score=checks.filter(Boolean).length;
-    const strong=/DRIVER.{0,4}LICEN[SC]E|OPERATOR\s+LICEN[SC]E|DRIVER.?S LICEN[SC]E/.test(t);
-    return { ok: strong || score>=3, score, strong, text };
-  }catch(e){ console.warn('License OCR failed, allowing through:', e && e.message); return { ok:true, skipped:true, error:true }; }
+    if(fake.test(t)){ local={ ok:false, fake:true, reason:'looks like a sample/template ID' }; }
+    else {
+      const checks=[
+        /DRIVER/.test(t), /LICEN[SC]E/.test(t), /IDENTIFICATION|\bIDENT/.test(t),
+        /DOB|DATE OF BIRTH|BIRTH/.test(t), /EXP\b|EXPIRES|EXPIRATION/.test(t),
+        /\bCLASS\b/.test(t), /\bSEX\b|\bHGT\b|HEIGHT|\bEYES\b|\bWGT\b/.test(t),
+        /\bDL\b|LIC(?:ENSE)?\s*(?:NO|#|NUMBER)|\bID\b/.test(t),
+        US_STATES.test(t), /\b\d{2}[\/\-.]\d{2}[\/\-.]\d{2,4}\b/.test(t)
+      ];
+      const score=checks.filter(Boolean).length;
+      const strong=/DRIVER.{0,4}LICEN[SC]E|OPERATOR\s+LICEN[SC]E|DRIVER.?S LICEN[SC]E/.test(t);
+      local={ ok: strong || score>=3, score, strong };
+    }
+  }catch(e){ console.warn('License OCR failed:', e && e.message); local={ ok:true, skipped:true, error:true }; }
+  if(!local.ok) return local;   // already rejected locally — don't spend a server call
+  // 2) stronger AI vision check on the server (when available)
+  try{
+    const server = await verifyLicenseServer(file);
+    if(server && server.configured && !server.error){
+      if(!server.ok) return { ok:false, fake:!!server.isTemplate, reason:server.reason||'failed verification', server };
+      return { ok:true, server };
+    }
+  }catch(e){}
+  return local;   // server not available — rely on the local screen
 }
 function setAuthBusy(busy, label){
   const btn=document.getElementById('authSubmit'); if(!btn) return;
