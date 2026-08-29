@@ -695,6 +695,7 @@ const DB = {
 function live(){ return !!(supaEnabled && supa && CURRENT_USER); }
 function businessNameOf(u){ const m=(u&&u.user_metadata)||{}; return m.business_name || userName(u) || 'A local business'; }
 function businessPhoneOf(u){ return (CURRENT_PROFILE&&CURRENT_PROFILE.phone) || ((u&&u.user_metadata&&u.user_metadata.phone)) || ''; }
+let HAS_BIZ_PHONE_COL = true;   // flips false for the session if the DB lacks the column, to stop repeated errors
 /* true when a Supabase RPC/function isn't there yet (i.e. security.sql not run) */
 function isMissingFn(err){ return !!err && (err.code==='PGRST202' || /could not find the function|function .* does not exist/i.test(err.message||'')); }
 function fromRow(r){ return {
@@ -731,8 +732,9 @@ const Data = {
       quantity:inp.quantity, pickup_window:inp.pickupWindow, pickup_address:inp.pickupAddress||'', dropoff_site_id:inp.dropoffSiteId||null,
       status:'open', hours_credit:STANDARD_HOURS };
     const phone=businessPhoneOf(CURRENT_USER)||null;
-    let { error } = await supa.from('pickups').insert({ ...row, business_phone:phone });
-    if(error && /business_phone/.test(error.message||'')){ ({ error } = await supa.from('pickups').insert(row)); }  // column added by security.sql
+    const tryPhone = HAS_BIZ_PHONE_COL && phone!=null;
+    let { error } = await supa.from('pickups').insert(tryPhone ? { ...row, business_phone:phone } : row);
+    if(error && /business_phone/.test(error.message||'')){ HAS_BIZ_PHONE_COL=false; ({ error } = await supa.from('pickups').insert(row)); }  // column not added yet — stop retrying this session
     if(error) throw new Error(error.message);
   },
   async cancelPickup(id){
