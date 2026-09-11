@@ -1329,7 +1329,7 @@ async function submitAuth(e){
     if(authMode==='signup'){
       const {data,error}=await supa.auth.signUp({ email, password:pw, options:{ data:{ full_name: name||email.split('@')[0], role: acctRole, business_name: bizName||null, phone: bizPhone||null } } });
       if(error){ authError(error.message); return false; }
-      if(!data.session){ closeAuth(); toast('Almost there — check your email to confirm your account.', true); return false; }
+      if(!data.session){ closeAuth(); toast(acctRole==='driver' ? 'Almost there — check your email to confirm your account, then add your licence from your dashboard to start claiming routes.' : 'Almost there — check your email to confirm your account.', true); return false; }
       if(acctRole==='driver' && licenseFile){
         try { const path=await uploadLicense(data.user.id, licenseFile); await supa.auth.updateUser({ data:{ license_path: path } }); }
         catch(err){ console.error('License upload failed:', err); toast('Account created, but your licence didn’t upload: '+((err&&err.message)||'unknown error')+' — add it from your dashboard.'); }
