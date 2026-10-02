@@ -966,7 +966,7 @@ async function renderLicenseCard(u, role, lic){
     body.innerHTML='<p class="dash-value">On file ✓</p><img class="lic-thumb" id="dashLicThumb" alt="Your license"><button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="document.getElementById(\'dashLicenseInput\').click()">Replace</button>';
     if(supaEnabled && supa){
       try{
-        const { data } = await supa.storage.from('app-licenses').createSignedUrl(lic, 3600);
+        const { data } = await supa.storage.from('licenses').createSignedUrl(lic, 3600);
         const img=document.getElementById('dashLicThumb');
         if(data && data.signedUrl && img){
           if(lic.toLowerCase().endsWith('.pdf')){ const a=document.createElement('a'); a.href=data.signedUrl; a.target='_blank'; a.className='leafnum small'; a.textContent='View uploaded PDF'; a.style.cssText='display:inline-block;margin-top:10px'; img.replaceWith(a); }
@@ -1163,7 +1163,7 @@ function onNoLicenseToggle(){ refreshLicenseVisibility(); }
 async function uploadLicense(userId, file){
   const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
   const path=userId+'/license.'+ext;
-  const {error}=await supa.storage.from('app-licenses').upload(path, file, { upsert:true, contentType:file.type||'application/octet-stream' });
+  const {error}=await supa.storage.from('licenses').upload(path, file, { upsert:true, contentType:file.type||'application/octet-stream' });
   if(error) throw error;
   return path;
 }
